@@ -1,5 +1,5 @@
 """
-Общие фикстуры для тестирования подсистемы памяти АМИ.
+Common fixtures for testing AMI memory subsystem.
 """
 
 import os
@@ -15,19 +15,19 @@ from undermaind.utils.db_init import DatabaseInitializer
 from undermaind.utils.ami_init import AmiInitializer
 
 
-# Загружаем тестовую конфигурацию из test_config.env
+# Load test configuration from test_config.env
 test_config_path = os.path.join(os.path.dirname(__file__), 'test_config.env')
 dotenv.load_dotenv(test_config_path)
 
 
 @pytest.fixture(scope="session")
 def db_config():
-    """Конфигурация для тестовой базы данных."""
+    """Configuration for test database."""
     ami_user = os.environ.get("FAMILY_AMI_USER", "ami_test_user")
     return {
         "DB_NAME": os.environ.get("FAMILY_DB_NAME", "family_db"),
         "DB_USER": ami_user,
-        "DB_SCHEMA": ami_user,  # Используем имя АМИ как имя схемы
+        "DB_SCHEMA": ami_user,  # Use AMI name as schema name
         "DB_PASSWORD": os.environ.get("FAMILY_AMI_PASSWORD", "ami_secure_password"),
         "DB_HOST": os.environ.get("FAMILY_DB_HOST", "localhost"),
         "DB_PORT": os.environ.get("FAMILY_DB_PORT", "5432"),
@@ -39,48 +39,48 @@ def db_config():
 @pytest.fixture(scope="session", autouse=True)
 def setup_base_model_schema(db_config):
     """
-    Инициализирует базовую модель с правильной схемой для тестов.
-    Эта фикстура автоматически применяется ко всем тестам в сессии.
+    Initializes the base model with the correct schema for tests.
+    This fixture is automatically applied to all tests in the session.
     """
-    # Сохраняем оригинальный метаданные
+    # Save original metadata
     original_metadata = Base.metadata
     original_schema = original_metadata.schema
     
-    # Устанавливаем правильную схему для тестов
+    # Set the correct schema for tests
     Base.metadata.schema = db_config["DB_SCHEMA"]
     
     yield
     
-    # Восстанавливаем оригинальную схему после тестов
+    # Restore original schema after tests
     Base.metadata.schema = original_schema
 
 
 @pytest.fixture(scope="session")
 def test_engine_memory():
-    """Создает SQLite базу в памяти для быстрых тестов без PostgreSQL."""
+    """Creates SQLite in-memory database for fast tests without PostgreSQL."""
     engine = create_engine('sqlite:///:memory:')
     
     @event.listens_for(engine, "connect")
     def do_connect(dbapi_connection, connection_record):
-        # Включение поддержки внешних ключей для SQLite
+        # Enable foreign key support for SQLite
         dbapi_connection.execute("PRAGMA foreign_keys=ON")
     
-    # Создаем все таблицы
+    # Create all tables
     Base.metadata.create_all(engine)
     
-    # Устанавливаем отношения
+    # Set relationships
     setup_relationships()
     
     yield engine
     
-    # Удаляем все таблицы и очищаем маппинги
+    # Drop all tables and clear mappers
     Base.metadata.drop_all(engine)
     clear_mappers()
 
 
 @pytest.fixture(scope="session")
 def test_db_initializer(db_config):
-    """Создает инициализатор базы данных для тестов."""
+    """Creates database initializer for tests."""
     return DatabaseInitializer(
         db_host=db_config["DB_HOST"],
         db_port=int(db_config["DB_PORT"]),
@@ -92,7 +92,7 @@ def test_db_initializer(db_config):
 
 @pytest.fixture(scope="session")
 def test_ami_initializer(test_db_initializer, db_config):
-    """Создает инициализатор АМИ для тестов."""
+    """Creates AMI initializer for tests."""
     return AmiInitializer(
         ami_name=db_config["DB_SCHEMA"],
         ami_password=db_config["DB_PASSWORD"],
@@ -107,19 +107,19 @@ def test_ami_initializer(test_db_initializer, db_config):
 @pytest.fixture(scope="module")
 def test_engine_postgres(db_config, test_db_initializer, test_ami_initializer):
     """
-    Создает PostgreSQL базу для интеграционных тестов.
-    Использует DatabaseInitializer и AmiInitializer для правильной инициализации.
+    Creates PostgreSQL database for integration tests.
+    Uses DatabaseInitializer and AmiInitializer for correct initialization.
     """
-    # Инициализируем базу данных, пересоздавая её для чистоты тестов
+    # Initialize database, recreating it for purity of tests
     test_db_initializer.initialize_database(recreate=True)
     
-    # Пересоздаем тестовый экземпляр АМИ
+    # Recreate test AMI instance
     test_ami_initializer.recreate_ami(force=True)
     
-    # Используем схему из конфигурации напрямую
+    # Use schema directly from configuration
     ami_schema = db_config['DB_SCHEMA']
     
-    # Создаем подключение к базе с указанием схемы АМИ
+    # Create connection to database with AMI schema specified
     connection_string = (
         f"postgresql://{db_config['DB_USER']}:{db_config['DB_PASSWORD']}@"
         f"{db_config['DB_HOST']}:{db_config['DB_PORT']}/"
@@ -127,22 +127,22 @@ def test_engine_postgres(db_config, test_db_initializer, test_ami_initializer):
     )
     engine = create_engine(connection_string)
     
-    # Устанавливаем схему поиска
+    # Set search path
     with engine.connect() as conn:
         conn.execute(text(f"SET search_path TO {ami_schema}, public"))
     
-    # Устанавливаем отношения
+    # Set relationships
     setup_relationships()
     
     yield engine
     
-    # Очистка: удаляем тестовый экземпляр АМИ
+    # Cleanup: drop test AMI instance
     test_ami_initializer.drop_ami(force=True)
 
 
 @pytest.fixture(scope="function")
 def db_session_memory(test_engine_memory):
-    """Создает сессию для работы с тестовой базой данных в памяти."""
+    """Creates session for working with test database in memory."""
     Session = sessionmaker(bind=test_engine_memory)
     session = Session()
     
@@ -151,18 +151,18 @@ def db_session_memory(test_engine_memory):
     session.rollback()
     session.close()
     
-    # Очищаем все таблицы после каждого теста
+    # Clear all tables after each test
     for table in reversed(Base.metadata.sorted_tables):
         test_engine_memory.execute(table.delete())
 
 
 @pytest.fixture(scope="function")
 def db_session_postgres(test_engine_postgres, db_config):
-    """Создает сессию для работы с тестовой базой данных PostgreSQL."""
+    """Creates session for working with test database PostgreSQL."""
     Session = sessionmaker(bind=test_engine_postgres)
     session = Session()
     
-    # Используем схему напрямую из конфигурации
+    # Use schema directly from configuration
     ami_schema = db_config['DB_SCHEMA']
     session.execute(text(f"SET search_path TO {ami_schema}, public"))
     
@@ -173,7 +173,7 @@ def db_session_postgres(test_engine_postgres, db_config):
 
 
 def pytest_configure(config):
-    """Регистрация пользовательских маркеров pytest."""
+    """Registration of custom pytest markers."""
     config.addinivalue_line(
-        "markers", "integration: маркер для интеграционных тестов, требующих PostgreSQL"
+        "markers", "integration: marker for integration tests requiring PostgreSQL"
     )

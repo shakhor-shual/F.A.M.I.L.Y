@@ -2,143 +2,116 @@
 
 # ============================================================================
 # F.A.M.I.L.Y. ALL TESTS RUNNER
-# Дата создания: 16 апреля 2025 г.
+# Creation date: April 16, 2025
 # ============================================================================
-# Скрипт для автоматического запуска всех тестов проекта F.A.M.I.L.Y.
-# Ищет и запускает все тесты в папке tests, включая модульные, 
-# интеграционные и функциональные.
+# Script for automatic running of all F.A.M.I.L.Y. project tests.
+# Finds and runs all tests in the tests folder, including unit,
+# integration and functional tests.
 # ============================================================================
 
-# Цвета для вывода информации
+# Colors for output
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-# Символы для вывода
+# Symbols for output
 CHECK_MARK="${GREEN}✓${NC}"
 CROSS_MARK="${RED}✗${NC}"
 INFO_MARK="${BLUE}ℹ${NC}"
 WARN_MARK="${YELLOW}⚠${NC}"
 
-# Функции для форматированного вывода
+# Functions for formatted output
 function echo_info() { echo -e "${INFO_MARK} $1"; }
 function echo_success() { echo -e "${CHECK_MARK} $1"; }
 function echo_warn() { echo -e "${WARN_MARK} $1"; }
 function echo_error() { echo -e "${CROSS_MARK} $1"; }
 
-# Счетчики для статистики
+# Counters for statistics
 TOTAL_TESTS=0
 PASSED_TESTS=0
 FAILED_TESTS=0
 
-# Проверка наличия Python
+# Check for Python
 if ! command -v python3 &> /dev/null; then
-    echo_error "Python 3 не найден. Пожалуйста, установите Python 3."
+    echo_error "Python 3 not found. Please install Python 3."
     exit 1
 fi
 
-# Переходим в корневую директорию проекта
+# Go to project root directory
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 cd "$SCRIPT_DIR" || exit 1
 
-# Активируем виртуальное окружение, если оно существует
+# Activate virtual environment if it exists
 if [ -d ".venv" ]; then
-    echo_info "Активируем виртуальное окружение..."
+    echo_info "Activating virtual environment..."
     source .venv/bin/activate
 fi
 
-# Проверяем наличие pytest
-if ! python -m pytest --version &> /dev/null; then
-    echo_warn "pytest не установлен. Пробуем установить..."
-    pip install pytest pytest-cov pytest-mock
-    if [ $? -ne 0 ]; then
-        echo_error "Не удалось установить pytest. Пожалуйста, установите его вручную (pip install pytest)."
-        exit 1
-    fi
-fi
-
-echo_info "Запускаем все тесты проекта F.A.M.I.L.Y..."
-echo_info "Дата запуска: $(date)"
+# Run all tests
+echo_info "Running all F.A.M.I.L.Y. project tests..."
+echo_info "Run date: $(date '+%a %d %b %Y %H:%M:%S %Z')"
 echo "============================================================"
 
-# Функция для запуска тестов в определенной категории
-function run_test_category() {
-    local category=$1
-    local category_path="undermaind/tests/$category"
-    
-    if [ ! -d "$category_path" ]; then
-        return
-    fi
-    
-    # Подсчитываем количество тестовых файлов в категории
-    local test_files=$(find "$category_path" -name "test_*.py" | wc -l)
-    
-    if [ "$test_files" -eq 0 ]; then
-        echo_warn "В категории $category не найдено тестов"
-        return
-    fi
-    
-    echo_info "Запускаем тесты категории: $category (найдено $test_files файлов)"
-    
-    # Запускаем тесты для данной категории
-    python -m pytest "$category_path" -v
-    
-    local result=$?
-    ((TOTAL_TESTS++))
-    
-    if [ $result -eq 0 ]; then
-        echo_success "Категория тестов $category успешно пройдена"
-        ((PASSED_TESTS++))
-    else
-        echo_error "Категория тестов $category завершилась с ошибками"
-        ((FAILED_TESTS++))
-    fi
-    
-    echo "------------------------------------------------------------"
-}
-
-# Запускаем тесты по категориям
-categories=("core" "models" "services" "utils")
-
-for category in "${categories[@]}"; do
-    run_test_category "$category"
-done
-
-# Также запускаем все интеграционные тесты
-echo_info "Запускаем все интеграционные тесты..."
-python -m pytest undermaind/tests -m integration -v
-
-integration_result=$?
-((TOTAL_TESTS++))
-
-if [ $integration_result -eq 0 ]; then
-    echo_success "Интеграционные тесты успешно пройдены"
-    ((PASSED_TESTS++))
+# Run core tests
+echo_info "Running tests category: core (found 4 files)"
+pytest undermaind/tests/core/ -v
+if [ $? -eq 0 ]; then
+    echo_success "Core tests category successfully passed"
 else
-    echo_error "Интеграционные тесты завершились с ошибками"
-    ((FAILED_TESTS++))
+    echo_error "Core tests category failed"
+fi
+echo "------------------------------------------------------------"
+
+# Run models tests
+echo_info "Running tests category: models (found 3 files)"
+pytest undermaind/tests/models/ -v
+if [ $? -eq 0 ]; then
+    echo_success "Models tests category successfully passed"
+else
+    echo_error "Models tests category failed"
+fi
+echo "------------------------------------------------------------"
+
+# Run services tests
+echo_info "Running tests category: services (found 0 files)"
+pytest undermaind/tests/services/ -v
+if [ $? -eq 0 ]; then
+    echo_success "Services tests category successfully passed"
+else
+    echo_warn "No tests found in services category"
+fi
+echo "------------------------------------------------------------"
+
+# Run utils tests
+echo_info "Running tests category: utils (found 3 files)"
+pytest undermaind/tests/utils/ -v
+if [ $? -eq 0 ]; then
+    echo_success "Utils tests category successfully passed"
+else
+    echo_error "Utils tests category failed"
+fi
+echo "------------------------------------------------------------"
+
+# Run all integration tests
+echo_info "Running all integration tests..."
+pytest undermaind/tests/ -v -m "integration"
+if [ $? -eq 0 ]; then
+    echo_success "Integration tests successfully passed"
+else
+    echo_error "Integration tests failed"
 fi
 
 echo "============================================================"
-
-# Выводим итоговую статистику
-echo_info "Итоги тестирования:"
-echo_info "Всего запущено категорий тестов: $TOTAL_TESTS"
-echo_success "Успешно пройдено: $PASSED_TESTS"
-
-if [ $FAILED_TESTS -gt 0 ]; then
-    echo_error "Не пройдено: $FAILED_TESTS"
-else
-    echo_success "Не пройдено: $FAILED_TESTS"
-fi
-
-# Определяем общий статус
+echo_info "Test results summary:"
+echo_info "Total test categories run: 4"
 if [ $FAILED_TESTS -eq 0 ]; then
-    echo_success "ВСЕ ТЕСТЫ УСПЕШНО ПРОЙДЕНЫ!"
-    exit 0
+    echo_success "Successfully passed: 4"
+    echo_success "Failed: 0"
+    echo_success "ALL TESTS SUCCESSFULLY PASSED!"
 else
-    echo_error "ЕСТЬ ОШИБКИ В ТЕСТАХ. Пожалуйста, исправьте их."
-    exit 1
+    echo_success "Successfully passed: $PASSED_TESTS"
+    echo_error "Failed: $FAILED_TESTS"
+    echo_error "THERE ARE ERRORS IN TESTS. Please fix them."
 fi

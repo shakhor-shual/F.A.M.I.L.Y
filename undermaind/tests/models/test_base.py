@@ -1,61 +1,64 @@
 """
-Тесты для базового модуля models/base.py.
+Tests for the base module models/base.py.
 
-Проверяет корректность импорта базового класса из core/base.py
-и его настройку для использования схемы ami_memory.
+Checks the correctness of importing the base class from core/base.py
+and its configuration for using the ami_memory schema.
 """
 
 import pytest
 from sqlalchemy import inspect
+import os
+import dotenv
 
 from undermaind.models.base import Base as ModelsBase
 from undermaind.core.base import Base as CoreBase
 
+# Load test configuration
+test_config_path = os.path.join(os.path.dirname(__file__), 'test_config.env')
+dotenv.load_dotenv(test_config_path)
 
 def test_base_import_from_core():
-    """Проверяет, что Base в models/base.py это тот же объект, что и в core/base.py."""
-    # Проверяем, что два объекта базового класса идентичны
-    assert ModelsBase is CoreBase, "Base в models/base.py должен быть импортирован из core/base.py"
+    """Checks that Base in models/base.py is the same object as in core/base.py."""
+    # Verify that both base class objects are identical
+    assert ModelsBase is CoreBase, "Base in models/base.py must be imported from core/base.py"
 
 
 def test_models_base_schema():
-    """Проверяет, что схема в Base из models корректно установлена."""
-    # Проверка схемы в метаданных
-    assert ModelsBase.metadata.schema == 'memory', "База должна использовать схему memory"
+    """Checks that the schema in Base from models is correctly set up."""
+    # Get expected schema name from configuration
+    expected_schema = os.environ.get("FAMILY_AMI_USER", "ami_test_user")
     
-    # Проверка наличия соглашения по именованию ограничений
+    # Check schema in metadata
+    assert ModelsBase.metadata.schema == expected_schema, f"Database should use schema {expected_schema}"
+    
+    # Check for naming convention constraints
     naming_convention = ModelsBase.metadata.naming_convention
-    assert naming_convention is not None, "База должна иметь соглашения по именованию"
-    assert 'pk' in naming_convention, "Соглашение именования для primary key отсутствует"
-    assert 'fk' in naming_convention, "Соглашение именования для foreign key отсутствует"
-    assert 'ix' in naming_convention, "Соглашение именования для index отсутствует"
-    assert 'uq' in naming_convention, "Соглашение именования для unique constraint отсутствует"
-    assert 'ck' in naming_convention, "Соглашение именования для check constraint отсутствует"
+    assert naming_convention is not None, "Database must have naming conventions"
+    assert 'pk' in naming_convention, "Naming convention for primary key is missing"
+    assert 'fk' in naming_convention, "Naming convention for foreign key is missing"
+    assert 'ix' in naming_convention, "Naming convention for index is missing"
+    assert 'uq' in naming_convention, "Naming convention for unique constraint is missing"
+    assert 'ck' in naming_convention, "Naming convention for check constraint is missing"
 
 
 def test_models_base_export():
-    """Проверяет корректный экспорт Base из models/base.py."""
-    # Импортируем чтобы проверить, что Base доступен через этот импорт
+    """Checks correct export of Base from models/base.py."""
+    # Import to verify that Base is available through this import
     from undermaind.models import Base as ImportedBase
     
-    # Проверяем, что импортированный Base идентичен оригинальному
-    assert ImportedBase is ModelsBase, "Base должен быть корректно экспортирован из models/__init__.py"
-    assert ImportedBase is CoreBase, "Base должен быть идентичен базовому классу из core"
+    # Verify that imported Base is identical to the original
+    assert ImportedBase is ModelsBase, "Base must be correctly exported from models/__init__.py"
+    assert ImportedBase is CoreBase, "Base must be identical to the base class from core"
 
 
 def test_setup_relationships_function():
     """
-    Проверяет наличие и работоспособность функции setup_relationships.
+    Checks the existence and functionality of the setup_relationships function.
     
-    Эта функция должна существовать для централизованного определения отношений
-    между моделями во избежание циклических импортов.
+    This function must exist for centralized definition of relationships
+    between models.
     """
-    # Проверяем, доступна ли функция setup_relationships через импорт
-    try:
-        from undermaind.models import setup_relationships
-        
-        # Проверяем, что это действительно функция
-        assert callable(setup_relationships), "setup_relationships должен быть функцией"
-        
-    except ImportError:
-        pytest.fail("Функция setup_relationships не определена или не экспортирована")
+    from undermaind.models import setup_relationships
+    
+    # Verify that the function exists and is callable
+    assert callable(setup_relationships), "setup_relationships must be a function"
