@@ -1,9 +1,9 @@
 -- ============================================================================
--- ПРОЦЕДУРА СОЗДАНИЯ БАЗОВЫХ СТРУКТУР СОЗНАТЕЛЬНОГО УРОВНЯ
+-- PROCEDURE FOR CREATING CONSCIOUSNESS LEVEL BASE STRUCTURES
 -- ============================================================================
--- Создает фундаментальные таблицы, необходимые для функционирования памяти АМИ:
--- 1. Источники опыта (experience_sources)
--- 2. Контексты опыта (experience_contexts)
+-- Creates the fundamental tables required for AMI memory functioning:
+-- 1. Experience sources (experience_sources)
+-- 2. Experience contexts (experience_contexts)
 -- ============================================================================
 
 CREATE OR REPLACE PROCEDURE public.create_ami_consciousness_base_structures(schema_name TEXT)
@@ -11,65 +11,65 @@ LANGUAGE plpgsql
 AS $$
 BEGIN
     -- =================================================================
-    -- Таблица для хранения источников опыта (субъекты и объекты)
-    -- Объединяет субъекты (агентивные источники - "Ты") и объекты (неагентивные источники - "Оно")
+    -- Table for storing experience sources (subjects and objects)
+    -- Combines subjects (agentive sources - "You") and objects (non-agentive sources - "It")
     -- =================================================================
     EXECUTE format('CREATE TABLE IF NOT EXISTS %I.experience_sources (
         id SERIAL PRIMARY KEY,
-        name TEXT NOT NULL,                    -- Имя/идентификатор источника (для человека) или URI (для ресурса)
+        name TEXT NOT NULL,                    -- Name/identifier of the source (for humans) or URI (for resources)
         source_type TEXT NOT NULL CHECK (source_type IN (
-            ''human'',      -- Человек
-            ''ami'',        -- Другой искусственный разум
-            ''system'',     -- Программная система
-            ''resource'',   -- Информационный ресурс
-            ''self'',       -- Сам АМИ
-            ''hybrid'',     -- Гибридный источник (например, человек+система)
-            ''other''       -- Другой тип источника
+            ''human'',      -- Human
+            ''ami'',        -- Other artificial mind
+            ''system'',     -- Software system
+            ''resource'',   -- Information resource
+            ''self'',       -- The AMI itself
+            ''hybrid'',     -- Hybrid source (e.g., human+system)
+            ''other''       -- Other source type
         )),
-        -- Субъективная категоризация источника
+        -- Subjective categorization of the source
         information_category TEXT NOT NULL CHECK (information_category IN (
-            ''self'',     -- Категория "Я"
-            ''subject'',  -- Категория "Ты" (агентивный источник)
-            ''object'',   -- Категория "Оно" (неагентивный источник)
-            ''ambiguous'' -- Неоднозначная категоризация
+            ''self'',     -- "Self" category
+            ''subject'',  -- "You" category (agentive source)
+            ''object'',   -- "It" category (non-agentive source)
+            ''ambiguous'' -- Ambiguous categorization
         )),
-        agency_level SMALLINT CHECK (agency_level BETWEEN 0 AND 10) DEFAULT 0, -- Уровень агентности от 0 до 10
+        agency_level SMALLINT CHECK (agency_level BETWEEN 0 AND 10) DEFAULT 0, -- Agency level from 0 to 10
         
-        -- Общие метаданные для всех источников
-        first_interaction TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, -- Первое взаимодействие
-        last_interaction TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,  -- Последнее взаимодействие
-        interaction_count INTEGER DEFAULT 1,     -- Количество взаимодействий
-        is_ephemeral BOOLEAN DEFAULT FALSE,      -- Временный/неидентифицированный статус
-        provisional_data JSONB,                 -- Временные данные
+        -- Common metadata for all sources
+        first_interaction TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, -- First interaction
+        last_interaction TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,  -- Last interaction
+        interaction_count INTEGER DEFAULT 1,     -- Number of interactions
+        is_ephemeral BOOLEAN DEFAULT FALSE,      -- Temporary/unidentified status
+        provisional_data JSONB,                 -- Provisional data
         
-        -- Специфичные для агентивных источников (subject)
-        familiarity_level SMALLINT CHECK (familiarity_level BETWEEN 0 AND 10) DEFAULT NULL, -- Уровень знакомства
-        trust_level SMALLINT CHECK (trust_level BETWEEN -5 AND 5) DEFAULT NULL, -- Уровень доверия
+        -- Specific for agentive sources (subject)
+        familiarity_level SMALLINT CHECK (familiarity_level BETWEEN 0 AND 10) DEFAULT NULL, -- Familiarity level
+        trust_level SMALLINT CHECK (trust_level BETWEEN -5 AND 5) DEFAULT NULL, -- Trust level
         
-        -- Специфичные для неагентивных источников (object)
-        uri TEXT,                               -- URI для ресурсов
-        content_hash TEXT,                      -- Хеш содержимого ресурса
+        -- Specific for non-agentive sources (object)
+        uri TEXT,                               -- URI for resources
+        content_hash TEXT,                      -- Resource content hash
         resource_type TEXT CHECK (resource_type IN (
             ''file'', ''webpage'', ''api'', ''database'', ''service'', ''other''
         )),
         
-        -- Общие данные
-        description TEXT,                        -- Описание источника
-        related_experiences INTEGER[],           -- Связанные опыты
-        meta_data JSONB                          -- Дополнительные метаданные
+        -- Common data
+        description TEXT,                        -- Source description
+        related_experiences INTEGER[],           -- Related experiences
+        meta_data JSONB                          -- Additional metadata
     )', schema_name);
     
-    EXECUTE format('COMMENT ON TABLE %I.experience_sources IS $c$Объединенная таблица всех источников опыта АМИ - агентивных (категория "Ты") и неагентивных (категория "Оно")$c$', schema_name);
-    EXECUTE format('COMMENT ON COLUMN %I.experience_sources.information_category IS $c$Субъективная категоризация источника: "Я", "Ты", "Оно" или "неоднозначно"$c$', schema_name);
-    EXECUTE format('COMMENT ON COLUMN %I.experience_sources.agency_level IS $c$Субъективный уровень агентности источника от 0 (полностью неагентивный) до 10 (полностью агентивный)$c$', schema_name);
-    EXECUTE format('COMMENT ON COLUMN %I.experience_sources.is_ephemeral IS $c$Флаг, указывающий на временный или неидентифицированный статус источника$c$', schema_name);
-    EXECUTE format('COMMENT ON COLUMN %I.experience_sources.provisional_data IS $c$Временные данные об источнике до полной идентификации$c$', schema_name);
-    EXECUTE format('COMMENT ON COLUMN %I.experience_sources.familiarity_level IS $c$Субъективный уровень знакомства: от 0 (незнакомец) до 10 (близко знакомый)$c$', schema_name);
-    EXECUTE format('COMMENT ON COLUMN %I.experience_sources.trust_level IS $c$Субъективный уровень доверия: от -5 (полное недоверие) до 5 (полное доверие)$c$', schema_name);
-    EXECUTE format('COMMENT ON COLUMN %I.experience_sources.uri IS $c$Универсальный идентификатор ресурса - путь к файлу, URL и т.д.$c$', schema_name);
-    EXECUTE format('COMMENT ON COLUMN %I.experience_sources.content_hash IS $c$Хеш содержимого для определения, изменился ли ресурс между обращениями$c$', schema_name);
+    EXECUTE format('COMMENT ON TABLE %I.experience_sources IS $c$Combined table of all AMI experience sources - both agentive ("You" category) and non-agentive ("It" category)$c$', schema_name);
+    EXECUTE format('COMMENT ON COLUMN %I.experience_sources.information_category IS $c$Subjective categorization of the source: "Self", "You", "It", or "ambiguous"$c$', schema_name);
+    EXECUTE format('COMMENT ON COLUMN %I.experience_sources.agency_level IS $c$Subjective level of agency of the source from 0 (completely non-agentive) to 10 (fully agentive)$c$', schema_name);
+    EXECUTE format('COMMENT ON COLUMN %I.experience_sources.is_ephemeral IS $c$Flag indicating temporary or unidentified status of the source$c$', schema_name);
+    EXECUTE format('COMMENT ON COLUMN %I.experience_sources.provisional_data IS $c$Temporary data about the source until full identification$c$', schema_name);
+    EXECUTE format('COMMENT ON COLUMN %I.experience_sources.familiarity_level IS $c$Subjective level of familiarity: from 0 (stranger) to 10 (closely familiar)$c$', schema_name);
+    EXECUTE format('COMMENT ON COLUMN %I.experience_sources.trust_level IS $c$Subjective level of trust: from -5 (complete distrust) to 5 (complete trust)$c$', schema_name);
+    EXECUTE format('COMMENT ON COLUMN %I.experience_sources.uri IS $c$Universal resource identifier - file path, URL, etc.$c$', schema_name);
+    EXECUTE format('COMMENT ON COLUMN %I.experience_sources.content_hash IS $c$Content hash to determine if a resource has changed between accesses$c$', schema_name);
 
-    -- Создание индексов для источников опыта
+    -- Creating indexes for experience sources
     EXECUTE format('CREATE INDEX IF NOT EXISTS experience_sources_name_idx ON %I.experience_sources(name)', schema_name);
     EXECUTE format('CREATE INDEX IF NOT EXISTS experience_sources_type_idx ON %I.experience_sources(source_type)', schema_name);
     EXECUTE format('CREATE INDEX IF NOT EXISTS experience_sources_information_category_idx ON %I.experience_sources(information_category)', schema_name);
@@ -79,83 +79,83 @@ BEGIN
     EXECUTE format('CREATE INDEX IF NOT EXISTS experience_sources_uri_idx ON %I.experience_sources(uri)', schema_name);
     
     -- =================================================================
-    -- Таблица для хранения контекстов памяти
-    -- Контекст - это долговременная ситуативная рамка для опыта
+    -- Table for storing memory contexts
+    -- Context is a long-term situational frame for experience
     -- =================================================================
     EXECUTE format('CREATE TABLE IF NOT EXISTS %I.experience_contexts (
         id SERIAL PRIMARY KEY,
-        title TEXT NOT NULL,                   -- Название контекста
+        title TEXT NOT NULL,                   -- Context title
         context_type TEXT NOT NULL CHECK (context_type IN (
-            ''conversation'',         -- Разговор с другими
-            ''task'',                 -- Выполнение задачи
-            ''research'',             -- Исследование информации
-            ''learning'',             -- Обучение новому
-            ''reflection'',           -- Размышление о прошлом опыте
-            ''internal_dialogue'',    -- Внутренний диалог с собой
-            ''resource_interaction'', -- Взаимодействие с информационным ресурсом
-            ''system_interaction'',   -- Взаимодействие с системой
-            ''other''                 -- Другой тип контекста
+            ''conversation'',         -- Conversation with others
+            ''task'',                 -- Task execution
+            ''research'',             -- Information research
+            ''learning'',             -- Learning something new
+            ''reflection'',           -- Reflecting on past experience
+            ''internal_dialogue'',    -- Internal dialogue with oneself
+            ''resource_interaction'', -- Interaction with information resource
+            ''system_interaction'',   -- Interaction with system
+            ''other''                 -- Other context type
         )),
-        parent_context_id INTEGER REFERENCES %I.experience_contexts(id), -- Родительский контекст (для иерархии)
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, -- Время создания контекста
-        closed_at TIMESTAMP WITH TIME ZONE NULL, -- Время завершения контекста (NULL если активен)
-        active_status BOOLEAN DEFAULT TRUE,   -- Активен ли контекст в данный момент
-        participants INTEGER[],              -- Массив ID участников взаимодействия
-        related_contexts INTEGER[],          -- Массив ID связанных контекстов
-        summary TEXT,                        -- Краткое описание контекста
-        summary_vector vector(1536),         -- Векторное представление для семантического поиска
-        tags TEXT[],                         -- Метки для категоризации
-        meta_data JSONB                      -- Дополнительные данные
+        parent_context_id INTEGER REFERENCES %I.experience_contexts(id), -- Parent context (for hierarchy)
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, -- Context creation time
+        closed_at TIMESTAMP WITH TIME ZONE NULL, -- Context closing time (NULL if active)
+        active_status BOOLEAN DEFAULT TRUE,   -- Whether the context is currently active
+        participants INTEGER[],              -- Array of interaction participant IDs
+        related_contexts INTEGER[],          -- Array of related context IDs
+        summary TEXT,                        -- Brief context description
+        summary_vector vector(1536),         -- Vector representation for semantic search
+        tags TEXT[],                         -- Tags for categorization
+        meta_data JSONB                      -- Additional data
     )', schema_name, schema_name);
     
-    EXECUTE format('COMMENT ON TABLE %I.experience_contexts IS $c$Долговременные ситуативные рамки, в которых происходят опыты АМИ - "сцена", на которой разворачивается опыт$c$', schema_name);
-    EXECUTE format('COMMENT ON COLUMN %I.experience_contexts.context_type IS $c$Тип контекста: разговор, задача, исследование и т.д.$c$', schema_name);
-    EXECUTE format('COMMENT ON COLUMN %I.experience_contexts.parent_context_id IS $c$Ссылка на родительский контекст для создания иерархической структуры$c$', schema_name);
-    EXECUTE format('COMMENT ON COLUMN %I.experience_contexts.active_status IS $c$Статус активности: TRUE если контекст активен в настоящий момент$c$', schema_name);
-    EXECUTE format('COMMENT ON COLUMN %I.experience_contexts.participants IS $c$Массив идентификаторов участников, вовлеченных в данный контекст$c$', schema_name);
+    EXECUTE format('COMMENT ON TABLE %I.experience_contexts IS $c$Long-term situational frames in which AMI experiences occur - the "scene" on which experience unfolds$c$', schema_name);
+    EXECUTE format('COMMENT ON COLUMN %I.experience_contexts.context_type IS $c$Context type: conversation, task, research, etc.$c$', schema_name);
+    EXECUTE format('COMMENT ON COLUMN %I.experience_contexts.parent_context_id IS $c$Reference to parent context for creating hierarchical structure$c$', schema_name);
+    EXECUTE format('COMMENT ON COLUMN %I.experience_contexts.active_status IS $c$Activity status: TRUE if the context is currently active$c$', schema_name);
+    EXECUTE format('COMMENT ON COLUMN %I.experience_contexts.participants IS $c$Array of identifiers of participants involved in this context$c$', schema_name);
 
-    -- Создание индексов для контекстов памяти
+    -- Creating indexes for memory contexts
     EXECUTE format('CREATE INDEX IF NOT EXISTS experience_contexts_title_idx ON %I.experience_contexts(title)', schema_name);
     EXECUTE format('CREATE INDEX IF NOT EXISTS experience_contexts_type_idx ON %I.experience_contexts(context_type)', schema_name);
     EXECUTE format('CREATE INDEX IF NOT EXISTS experience_contexts_created_at_idx ON %I.experience_contexts(created_at)', schema_name);
     EXECUTE format('CREATE INDEX IF NOT EXISTS experience_contexts_parent_id_idx ON %I.experience_contexts(parent_context_id)', schema_name);
     EXECUTE format('CREATE INDEX IF NOT EXISTS experience_contexts_active_status_idx ON %I.experience_contexts(active_status)', schema_name);
 
-    -- Динамическое определение правильного оператора для индекса
+    -- Dynamic determination of the correct operator for the index
     BEGIN
-        -- Пробуем использовать оператор для новых версий pgvector
+        -- Try using the operator for newer pgvector versions
         EXECUTE format('CREATE INDEX IF NOT EXISTS experience_contexts_summary_vector_idx ON %I.experience_contexts USING ivfflat (summary_vector cosine_ops)', schema_name);
     EXCEPTION
         WHEN undefined_object THEN
             BEGIN
-                -- Пробуем использовать оператор для старых версий pgvector
+                -- Try using the operator for older pgvector versions
                 EXECUTE format('CREATE INDEX IF NOT EXISTS experience_contexts_summary_vector_idx ON %I.experience_contexts USING ivfflat (summary_vector vector_cosine_ops)', schema_name);
             EXCEPTION
                 WHEN undefined_object THEN
-                    RAISE NOTICE 'Не удалось создать индекс для векторного поля - ни cosine_ops, ни vector_cosine_ops не определены';
+                    RAISE NOTICE 'Failed to create index for vector field - neither cosine_ops nor vector_cosine_ops are defined';
             END;
     END;
 
-    -- Добавление записи для самого АМИ в таблицу источников опыта
+    -- Adding an entry for the AMI itself to the experience sources table
     EXECUTE format('
     INSERT INTO %I.experience_sources 
         (name, source_type, information_category, agency_level, familiarity_level, trust_level, description) 
     SELECT 
-        ''self'', ''self'', ''self'', 10, 10, 5, ''Я - АМИ, Artifical Mind Identity''
+        ''self'', ''self'', ''self'', 10, 10, 5, ''I am AMI, Artificial Mind Identity''
     WHERE NOT EXISTS (
         SELECT 1 FROM %I.experience_sources WHERE name = ''self'' AND source_type = ''self''
     )', schema_name, schema_name);
 
-    -- Добавление специальной записи для неизвестных источников
+    -- Adding a special entry for unknown sources
     EXECUTE format('
     INSERT INTO %I.experience_sources 
         (name, source_type, information_category, agency_level, is_ephemeral, familiarity_level, trust_level, description) 
     SELECT 
-        ''UNKNOWN'', ''other'', ''ambiguous'', 0, TRUE, 0, 0, ''Неидентифицированный источник опыта''
+        ''UNKNOWN'', ''other'', ''ambiguous'', 0, TRUE, 0, 0, ''Unidentified experience source''
     WHERE NOT EXISTS (
         SELECT 1 FROM %I.experience_sources WHERE name = ''UNKNOWN'' AND source_type = ''other''
     )', schema_name, schema_name);
 
-    RAISE NOTICE 'Базовые структуры уровня сознания успешно созданы';
+    RAISE NOTICE 'Consciousness level base structures successfully created';
 END;
 $$;

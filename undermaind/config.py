@@ -61,7 +61,7 @@ def load_config(config_file: Optional[str] = None, env_prefix: str = "UNDERMAIND
         "DB_HOST": "localhost",
         "DB_PORT": 5432,
         "DB_NAME": "family_memory_db",
-        "DB_SCHEMA": "ami_memory",
+        "DB_SCHEMA": "memory",  # Обновлено: используем имя схемы без префикса ami_
         "DB_ADMIN_USER": os.environ.get("DB_ADMIN_USER", "postgres"),
         "DB_ADMIN_PASSWORD": os.environ.get("DB_ADMIN_PASSWORD", ""),
         "DB_POOL_SIZE": 5,

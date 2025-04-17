@@ -93,13 +93,13 @@ echo_info "Loading parameters from configuration file: $CONFIG_FILE"
 source "$CONFIG_FILE"
 
 # Remove quotes from password in configuration file if present
-if [[ "$FAMILY_ADMIN_PASS" == \"*\" ]]; then
-    FAMILY_ADMIN_PASS="${FAMILY_ADMIN_PASS//\"/}"
+if [[ "$FAMILY_ADMIN_PASSWORD" == \"*\" ]]; then
+    FAMILY_ADMIN_PASSWORD="${FAMILY_ADMIN_PASSWORD//\"/}"
     echo_info "Removed surrounding quotes from password in configuration file"
 fi
 
 # Save password from config in case it's not specified in command line
-CONFIG_ADMIN_PASS="$FAMILY_ADMIN_PASS"
+CONFIG_ADMIN_PASS="$FAMILY_ADMIN_PASSWORD"
 
 # Apply command line parameters if specified (override)
 if [ ! -z "$FAMILY_ADMIN_PASS_CMD" ]; then
@@ -108,11 +108,11 @@ if [ ! -z "$FAMILY_ADMIN_PASS_CMD" ]; then
     if [[ "$FAMILY_ADMIN_PASS_CMD" == \"*\" ]]; then
         FAMILY_ADMIN_PASS_CMD="${FAMILY_ADMIN_PASS_CMD//\"/}"
     fi
-    FAMILY_ADMIN_PASS="$FAMILY_ADMIN_PASS_CMD"
+    FAMILY_ADMIN_PASSWORD="$FAMILY_ADMIN_PASS_CMD"
 else
-    # FAMILY_ADMIN_PASS is already set from configuration file
+    # FAMILY_ADMIN_PASSWORD is already set from configuration file
     # and cleaned from quotes above
-    FAMILY_ADMIN_PASS="$CONFIG_ADMIN_PASS"
+    FAMILY_ADMIN_PASSWORD="$CONFIG_ADMIN_PASS"
 fi
 
 if [ ! -z "$DB_HOST" ]; then
@@ -147,7 +147,7 @@ case "$DB_ENGINE" in
         
         # Test connection to postgres database (system database)
         echo_info "Testing connection to postgres system database:"
-        PGPASSWORD="$FAMILY_ADMIN_PASS" psql -h "$DB_HOST" -p "$DB_PORT" -U "$FAMILY_ADMIN_USER" -d "postgres" -c "SELECT 1 AS connection_test;" || {
+        PGPASSWORD="$FAMILY_ADMIN_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$FAMILY_ADMIN_USER" -d "postgres" -c "SELECT 1 AS connection_test;" || {
             echo_error "Failed to connect to postgres system database. Check credentials."
             exit 1
         }
@@ -177,12 +177,12 @@ function drop_database {
     case "$DB_ENGINE" in
         postgresql)
             # Check if database exists
-            if PGPASSWORD="$FAMILY_ADMIN_PASS" psql -h "$DB_HOST" -p "$DB_PORT" -U "$FAMILY_ADMIN_USER" -lqt | cut -d \| -f 1 | grep -qw "$FAMILY_DB_NAME"; then
+            if PGPASSWORD="$FAMILY_ADMIN_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$FAMILY_ADMIN_USER" -lqt | cut -d \| -f 1 | grep -qw "$FAMILY_DB_NAME"; then
                 echo_info "Database '$FAMILY_DB_NAME' exists and will be deleted"
                 # Disconnect active connections
-                PGPASSWORD="$FAMILY_ADMIN_PASS" psql -h "$DB_HOST" -p "$DB_PORT" -U "$FAMILY_ADMIN_USER" postgres -c "SELECT pg_terminate_backend(pg_stat_activity.pid) FROM pg_stat_activity WHERE pg_stat_activity.datname = '$FAMILY_DB_NAME' AND pid <> pg_backend_pid();"
+                PGPASSWORD="$FAMILY_ADMIN_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$FAMILY_ADMIN_USER" postgres -c "SELECT pg_terminate_backend(pg_stat_activity.pid) FROM pg_stat_activity WHERE pg_stat_activity.datname = '$FAMILY_DB_NAME' AND pid <> pg_backend_pid();"
                 # Drop database
-                PGPASSWORD="$FAMILY_ADMIN_PASS" psql -h "$DB_HOST" -p "$DB_PORT" -U "$FAMILY_ADMIN_USER" postgres -c "DROP DATABASE $FAMILY_DB_NAME;"
+                PGPASSWORD="$FAMILY_ADMIN_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$FAMILY_ADMIN_USER" postgres -c "DROP DATABASE $FAMILY_DB_NAME;"
                 if [ $? -ne 0 ]; then
                     echo_error "Error when deleting database '$FAMILY_DB_NAME'"
                     return 1
@@ -191,7 +191,7 @@ function drop_database {
                 # Create database again only if create_new flag is set
                 if [ "$create_new" = true ]; then
                     echo_info "Creating new database '$FAMILY_DB_NAME'"
-                    PGPASSWORD="$FAMILY_ADMIN_PASS" psql -h "$DB_HOST" -p "$DB_PORT" -U "$FAMILY_ADMIN_USER" postgres -c "CREATE DATABASE $FAMILY_DB_NAME;"
+                    PGPASSWORD="$FAMILY_ADMIN_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$FAMILY_ADMIN_USER" postgres -c "CREATE DATABASE $FAMILY_DB_NAME;"
                     if [ $? -ne 0 ]; then
                         echo_error "Error when creating new database '$FAMILY_DB_NAME'"
                         return 1
@@ -205,7 +205,7 @@ function drop_database {
                 # Create database only if create_new flag is set
                 if [ "$create_new" = true ]; then
                     echo_info "Creating new database '$FAMILY_DB_NAME'"
-                    PGPASSWORD="$FAMILY_ADMIN_PASS" psql -h "$DB_HOST" -p "$DB_PORT" -U "$FAMILY_ADMIN_USER" postgres -c "CREATE DATABASE $FAMILY_DB_NAME;"
+                    PGPASSWORD="$FAMILY_ADMIN_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$FAMILY_ADMIN_USER" postgres -c "CREATE DATABASE $FAMILY_DB_NAME;"
                     if [ $? -ne 0 ]; then
                         echo_error "Error when creating database '$FAMILY_DB_NAME'"
                         return 1
@@ -247,7 +247,7 @@ function create_family_admin_and_db {
             sudo -u postgres psql \
                 -c "CREATE TEMP TABLE IF NOT EXISTS params (param_name text PRIMARY KEY, param_value text);" \
                 -c "INSERT INTO params VALUES ('user_name', '$FAMILY_ADMIN_USER') ON CONFLICT (param_name) DO UPDATE SET param_value = EXCLUDED.param_value;" \
-                -c "INSERT INTO params VALUES ('user_password', '$FAMILY_ADMIN_PASS') ON CONFLICT (param_name) DO UPDATE SET param_value = EXCLUDED.param_value;" \
+                -c "INSERT INTO params VALUES ('user_password', '$FAMILY_ADMIN_PASSWORD') ON CONFLICT (param_name) DO UPDATE SET param_value = EXCLUDED.param_value;" \
                 -f "$SQL_SCRIPTS_DIR/utils/admin_operations.sql"
             if [ $? -ne 0 ]; then
                 echo_error "Error executing admin user creation SQL script"
@@ -320,7 +320,7 @@ function apply_sql_scripts_from_config {
         # Execute SQL script depending on engine type
         case "$DB_ENGINE" in
             postgresql)
-                PGPASSWORD="$FAMILY_ADMIN_PASS" psql -h "$DB_HOST" -p "$DB_PORT" -U "$FAMILY_ADMIN_USER" -d "$FAMILY_DB_NAME" -f "$script_path"
+                PGPASSWORD="$FAMILY_ADMIN_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$FAMILY_ADMIN_USER" -d "$FAMILY_DB_NAME" -f "$script_path"
                 if [ $? -ne 0 ]; then
                     echo_error "Error executing SQL script: $script_path"
                     return 1
@@ -411,12 +411,12 @@ if [ "$DROP_DATABASE" = true ]; then
     case "$DB_ENGINE" in
         postgresql)
             # Check if database exists before attempting to drop it
-            if PGPASSWORD="$FAMILY_ADMIN_PASS" psql -h "$DB_HOST" -p "$DB_PORT" -U "$FAMILY_ADMIN_USER" -lqt | cut -d \| -f 1 | grep -qw "$FAMILY_DB_NAME"; then
+            if PGPASSWORD="$FAMILY_ADMIN_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$FAMILY_ADMIN_USER" -lqt | cut -d \| -f 1 | grep -qw "$FAMILY_DB_NAME"; then
                 echo_info "Database '$FAMILY_DB_NAME' exists and will be deleted"
                 # Disconnect active connections
-                PGPASSWORD="$FAMILY_ADMIN_PASS" psql -h "$DB_HOST" -p "$DB_PORT" -U "$FAMILY_ADMIN_USER" postgres -c "SELECT pg_terminate_backend(pg_stat_activity.pid) FROM pg_stat_activity WHERE pg_stat_activity.datname = '$FAMILY_DB_NAME' AND pid <> pg_backend_pid();"
+                PGPASSWORD="$FAMILY_ADMIN_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$FAMILY_ADMIN_USER" postgres -c "SELECT pg_terminate_backend(pg_stat_activity.pid) FROM pg_stat_activity WHERE pg_stat_activity.datname = '$FAMILY_DB_NAME' AND pid <> pg_backend_pid();"
                 # Drop database
-                PGPASSWORD="$FAMILY_ADMIN_PASS" psql -h "$DB_HOST" -p "$DB_PORT" -U "$FAMILY_ADMIN_USER" postgres -c "DROP DATABASE $FAMILY_DB_NAME;"
+                PGPASSWORD="$FAMILY_ADMIN_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$FAMILY_ADMIN_USER" postgres -c "DROP DATABASE $FAMILY_DB_NAME;"
                 if [ $? -ne 0 ]; then
                     echo_error "Error when deleting database '$FAMILY_DB_NAME'"
                     exit 1
@@ -458,7 +458,7 @@ if [ "$RECREATE_DATABASE" = true ]; then
                 echo_info "User $FAMILY_ADMIN_USER already exists"
             else
                 echo_info "Creating user $FAMILY_ADMIN_USER with superuser privileges..."
-                sudo -u postgres psql -c "CREATE USER $FAMILY_ADMIN_USER WITH PASSWORD '$FAMILY_ADMIN_PASS' SUPERUSER CREATEDB CREATEROLE INHERIT LOGIN;"
+                sudo -u postgres psql -c "CREATE USER $FAMILY_ADMIN_USER WITH PASSWORD '$FAMILY_ADMIN_PASSWORD' SUPERUSER CREATEDB CREATEROLE INHERIT LOGIN;"
                 if [ $? -ne 0 ]; then
                     echo_error "Error when creating user $FAMILY_ADMIN_USER"
                     exit 1

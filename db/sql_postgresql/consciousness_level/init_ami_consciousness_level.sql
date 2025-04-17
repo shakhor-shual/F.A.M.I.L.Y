@@ -1,15 +1,15 @@
 -- ============================================================================
--- ПРОЦЕДУРЫ ИНИЦИАЛИЗАЦИИ УРОВНЯ СОЗНАНИЯ ДЛЯ ПРОЕКТА F.A.M.I.L.Y.
--- Дата создания: 16 апреля 2025 г.
--- Автор: Команда проекта F.A.M.I.L.Y.
+-- CONSCIOUSNESS LEVEL INITIALIZATION PROCEDURES FOR F.A.M.I.L.Y. PROJECT
+-- Creation date: April 16, 2025
+-- Author: F.A.M.I.L.Y. Project Team
 -- ============================================================================
--- Этот скрипт содержит процедуры для создания и инициализации компонентов
--- уровня сознания АМИ. Разбиение на процедуры обеспечивает модульность и гибкость
--- при развертывании и обновлении структуры базы данных.
+-- This script contains procedures for creating and initializing components
+-- of the AMI consciousness level. The division into procedures provides modularity 
+-- and flexibility when deploying and updating the database structure.
 -- ============================================================================
 
--- Главная процедура инициализации уровня сознания
--- Принимает параметры для создания пользователя АМИ и настройки прав
+-- Main procedure for consciousness level initialization
+-- Takes parameters for AMI user creation and permission setup
 CREATE OR REPLACE PROCEDURE public.init_ami_consciousness_level(
     ami_name TEXT, 
     ami_password TEXT DEFAULT NULL,
@@ -25,117 +25,117 @@ DECLARE
     schema_exists BOOLEAN;
     sql_command TEXT;
 BEGIN
-    -- Определяем имя схемы если не указано
-    v_schema_name := COALESCE(schema_name, 'ami_' || ami_name);
+    -- Define schema name if not specified
+    v_schema_name := COALESCE(schema_name, ami_name);
 
-    -- Создание расширения vector если оно не существует
+    -- Create vector extension if it doesn't exist
     CREATE EXTENSION IF NOT EXISTS vector;
 
-    -- Проверка существования схемы
+    -- Check if schema exists
     SELECT EXISTS (
         SELECT FROM pg_namespace WHERE nspname = v_schema_name
     ) INTO schema_exists;
     
-    -- Если схема не существует, создаем её
+    -- If schema doesn't exist, create it
     IF NOT schema_exists THEN
         sql_command := 'CREATE SCHEMA ' || quote_ident(v_schema_name);
         EXECUTE sql_command;
-        RAISE NOTICE 'Схема % успешно создана', v_schema_name;
+        RAISE NOTICE 'Schema % successfully created', v_schema_name;
     ELSE
-        RAISE NOTICE 'Схема % уже существует', v_schema_name;
+        RAISE NOTICE 'Schema % already exists', v_schema_name;
     END IF;
 
-    -- Проверка существования пользователя АМИ
+    -- Check if AMI user exists
     SELECT EXISTS (
         SELECT FROM pg_catalog.pg_roles WHERE rolname = ami_name
     ) INTO user_exists;
     
-    -- Если пользователь не существует и указан пароль, создаем пользователя
+    -- If user doesn't exist and password is specified, create user
     IF NOT user_exists AND ami_password IS NOT NULL THEN
         sql_command := 'CREATE USER ' || quote_ident(ami_name) || ' WITH PASSWORD ' || quote_literal(ami_password);
         EXECUTE sql_command;
-        RAISE NOTICE 'Пользователь % успешно создан', ami_name;
+        RAISE NOTICE 'User % successfully created', ami_name;
     ELSIF NOT user_exists AND ami_password IS NULL THEN
-        RAISE WARNING 'Пользователь % не существует, а пароль не указан. Пользователь не создан', ami_name;
+        RAISE WARNING 'User % does not exist, and password is not specified. User not created', ami_name;
     ELSE
-        RAISE NOTICE 'Пользователь % уже существует', ami_name;
+        RAISE NOTICE 'User % already exists', ami_name;
     END IF;
     
-    -- Вызов процедуры создания базовых структур из схемы public
+    -- Call procedure to create base structures from public schema
     IF EXISTS (
         SELECT FROM pg_catalog.pg_proc p
         JOIN pg_catalog.pg_namespace n ON p.pronamespace = n.oid
         WHERE n.nspname = 'public' AND p.proname = 'create_ami_consciousness_base_structures'
     ) THEN
         EXECUTE format('CALL public.create_ami_consciousness_base_structures(%L)', v_schema_name);
-        RAISE NOTICE 'Базовые структуры уровня сознания успешно созданы';
+        RAISE NOTICE 'Base consciousness level structures successfully created';
     ELSE
-        RAISE WARNING 'Процедура create_ami_consciousness_base_structures не найдена в схеме public. Базовые структуры не созданы';
+        RAISE WARNING 'Procedure create_ami_consciousness_base_structures not found in public schema. Base structures not created';
     END IF;
 
-    -- Вызов процедуры создания структуры опыта из схемы public
+    -- Call procedure to create experience structure from public schema
     IF EXISTS (
         SELECT FROM pg_catalog.pg_proc p
         JOIN pg_catalog.pg_namespace n ON p.pronamespace = n.oid
         WHERE n.nspname = 'public' AND p.proname = 'create_ami_experience_structure'
     ) THEN
         EXECUTE format('CALL public.create_ami_experience_structure(%L)', v_schema_name);
-        RAISE NOTICE 'Структуры опыта успешно созданы';
+        RAISE NOTICE 'Experience structures successfully created';
     ELSE
-        RAISE WARNING 'Процедура create_ami_experience_structure не найдена в схеме public. Структуры опыта не созданы';
+        RAISE WARNING 'Procedure create_ami_experience_structure not found in public schema. Experience structures not created';
     END IF;
 
-    -- Вызов процедуры создания структур мышления из схемы public
+    -- Call procedure to create thinking structures from public schema
     IF EXISTS (
         SELECT FROM pg_catalog.pg_proc p
         JOIN pg_catalog.pg_namespace n ON p.pronamespace = n.oid
         WHERE n.nspname = 'public' AND p.proname = 'create_ami_thinking_structures'
     ) THEN
         EXECUTE format('CALL public.create_ami_thinking_structures(%L)', v_schema_name);
-        RAISE NOTICE 'Структуры мышления успешно созданы';
+        RAISE NOTICE 'Thinking structures successfully created';
     ELSE
-        RAISE WARNING 'Процедура create_ami_thinking_structures не найдена в схеме public. Структуры мышления не созданы';
+        RAISE WARNING 'Procedure create_ami_thinking_structures not found in public schema. Thinking structures not created';
     END IF;
 
-    -- Вызов процедуры создания ассоциативных структур из схемы public
+    -- Call procedure to create association structures from public schema
     IF EXISTS (
         SELECT FROM pg_catalog.pg_proc p
         JOIN pg_catalog.pg_namespace n ON p.pronamespace = n.oid
         WHERE n.nspname = 'public' AND p.proname = 'create_ami_association_structures'
     ) THEN
         EXECUTE format('CALL public.create_ami_association_structures(%L)', v_schema_name);
-        RAISE NOTICE 'Ассоциативные структуры успешно созданы';
+        RAISE NOTICE 'Association structures successfully created';
     ELSE
-        RAISE WARNING 'Процедура create_ami_association_structures не найдена в схеме public. Ассоциативные структуры не созданы';
+        RAISE WARNING 'Procedure create_ami_association_structures not found in public schema. Association structures not created';
     END IF;
 
-    -- Вызов процедуры создания представлений из схемы public
+    -- Call procedure to create views from public schema
     IF EXISTS (
         SELECT FROM pg_catalog.pg_proc p
         JOIN pg_catalog.pg_namespace n ON p.pronamespace = n.oid
         WHERE n.nspname = 'public' AND p.proname = 'create_ami_consciousness_views'
     ) THEN
         EXECUTE format('CALL public.create_ami_consciousness_views(%L)', v_schema_name);
-        RAISE NOTICE 'Представления уровня сознания успешно созданы';
+        RAISE NOTICE 'Consciousness level views successfully created';
     ELSE
-        RAISE WARNING 'Процедура create_ami_consciousness_views не найдена в схеме public. Представления не созданы';
+        RAISE WARNING 'Procedure create_ami_consciousness_views not found in public schema. Views not created';
     END IF;
     
-    -- Если нужно назначить права пользователю АМИ
+    -- If permissions need to be granted to AMI user
     IF grant_permissions AND EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = ami_name) THEN
-        -- Даем пользователю права на использование схемы
+        -- Grant user schema usage rights
         sql_command := 'GRANT USAGE ON SCHEMA ' || quote_ident(v_schema_name) || ' TO ' || quote_ident(ami_name);
         EXECUTE sql_command;
         
-        -- Даем права на все существующие таблицы в схеме
+        -- Grant rights to all existing tables in the schema
         sql_command := 'GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA ' || quote_ident(v_schema_name) || ' TO ' || quote_ident(ami_name);
         EXECUTE sql_command;
         
-        -- Даем права на все последовательности в схеме
+        -- Grant rights to all sequences in the schema
         sql_command := 'GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA ' || quote_ident(v_schema_name) || ' TO ' || quote_ident(ami_name);
         EXECUTE sql_command;
         
-        -- Устанавливаем права по умолчанию для новых объектов
+        -- Set default privileges for new objects
         sql_command := 'ALTER DEFAULT PRIVILEGES IN SCHEMA ' || quote_ident(v_schema_name) || 
                       ' GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO ' || quote_ident(ami_name);
         EXECUTE sql_command;
@@ -144,23 +144,23 @@ BEGIN
                       ' GRANT USAGE, SELECT ON SEQUENCES TO ' || quote_ident(ami_name);
         EXECUTE sql_command;
         
-        RAISE NOTICE 'Права для пользователя % успешно настроены', ami_name;
+        RAISE NOTICE 'Permissions for user % successfully configured', ami_name;
     ELSIF grant_permissions THEN
-        RAISE WARNING 'Пользователь % не существует, права не настроены', ami_name;
+        RAISE WARNING 'User % does not exist, permissions not configured', ami_name;
     END IF;
     
-    RAISE NOTICE 'Инициализация уровня сознания АМИ завершена';
+    RAISE NOTICE 'AMI consciousness level initialization completed';
 END;
 $$;
 
--- Добавляем комментарий к процедуре
+-- Add comment to the procedure
 COMMENT ON PROCEDURE public.init_ami_consciousness_level(TEXT, TEXT, TEXT, BOOLEAN) IS 
-'Процедура инициализации уровня сознания АМИ.
-Создает схему и пользователя АМИ, а затем вызывает все необходимые процедуры
-для создания структур данных уровня сознания.
+'AMI consciousness level initialization procedure.
+Creates schema and AMI user, then calls all necessary procedures
+to create consciousness level data structures.
 
-Параметры:
-- ami_name: имя пользователя АМИ
-- ami_password: пароль пользователя АМИ (опционально)
-- schema_name: имя схемы (по умолчанию ami_{ami_name})
-- grant_permissions: нужно ли назначать права доступа (по умолчанию true)';
+Parameters:
+- ami_name: AMI user name
+- ami_password: AMI user password (optional)
+- schema_name: schema name (defaults to ami_name)
+- grant_permissions: whether to grant access permissions (defaults to true)';

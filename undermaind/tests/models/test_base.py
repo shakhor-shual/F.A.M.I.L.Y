@@ -19,9 +19,9 @@ def test_base_import_from_core():
 
 
 def test_models_base_schema():
-    """Проверяет, что схема в Base из models корректно установлена на ami_memory."""
+    """Проверяет, что схема в Base из models корректно установлена."""
     # Проверка схемы в метаданных
-    assert ModelsBase.metadata.schema == 'ami_memory', "База должна использовать схему ami_memory"
+    assert ModelsBase.metadata.schema == 'memory', "База должна использовать схему memory"
     
     # Проверка наличия соглашения по именованию ограничений
     naming_convention = ModelsBase.metadata.naming_convention

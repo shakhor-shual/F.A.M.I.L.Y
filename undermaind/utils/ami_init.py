@@ -91,12 +91,13 @@ class AmiInitializer:
             with self._get_db_connection() as conn:
                 with conn.cursor() as cur:
                     # Вызываем процедуру инициализации АМИ
+                    # Используем имя АМИ напрямую как имя схемы (без добавления префикса)
                     cur.execute(
                         "CALL public.init_ami_consciousness_level(%s, %s, %s, %s)",
                         (
                             self.ami_name,
                             self.ami_password,
-                            f"ami_{self.ami_name}",
+                            self.ami_name,  # Используем имя АМИ как имя схемы без префикса "ami_"
                             True
                         )
                     )

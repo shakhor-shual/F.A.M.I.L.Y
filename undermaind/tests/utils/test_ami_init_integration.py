@@ -41,7 +41,7 @@ def test_ami_name():
 @pytest.fixture(scope="module")
 def test_ami_schema():
     """Имя схемы тестового АМИ"""
-    return "ami_ami_test_user"
+    return "ami_test_user"  # Обновлено: имя схемы теперь равно имени АМИ, без дополнительного префикса
 
 
 @pytest.fixture(scope="module")

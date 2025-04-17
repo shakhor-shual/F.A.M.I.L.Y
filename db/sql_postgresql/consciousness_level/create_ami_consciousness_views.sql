@@ -1,12 +1,12 @@
 -- ============================================================================
--- ПРОЦЕДУРА СОЗДАНИЯ ПРЕДСТАВЛЕНИЙ СОЗНАТЕЛЬНОГО УРОВНЯ
+-- PROCEDURE FOR CREATING CONSCIOUSNESS LEVEL VIEWS
 -- ============================================================================
--- Создает представления (views) для удобного доступа к данным сознательного уровня:
--- 1. Представление текущего внимания (current_awareness)
--- 2. Внутренний поток мыслей (internal_thought_stream)
--- 3. Представление взаимодействий (external_interaction_stream)
--- 4. Диалоговые взаимодействия (dialogue_interactions)
--- 5. Активные процессы мышления (active_thinking_processes)
+-- Creates views for convenient access to consciousness level data:
+-- 1. Current awareness view (current_awareness)
+-- 2. Internal thought stream (internal_thought_stream)
+-- 3. External interaction stream (external_interaction_stream)
+-- 4. Dialogue interactions (dialogue_interactions)
+-- 5. Active thinking processes (active_thinking_processes)
 -- ============================================================================
 
 CREATE OR REPLACE PROCEDURE public.create_ami_consciousness_views(schema_name TEXT)
@@ -14,12 +14,12 @@ LANGUAGE plpgsql
 AS $$
 BEGIN
     -- =================================================================
-    -- Представление "текущего фокуса внимания"
-    -- Показывает наиболее актуальные опыты из разных источников
+    -- "Current awareness focus" view
+    -- Shows the most relevant experiences from different sources
     -- =================================================================
     EXECUTE format('CREATE OR REPLACE VIEW %I.current_awareness AS
     WITH recent_experiences AS (
-        -- Недавние значимые опыты
+        -- Recent significant experiences
         SELECT *
         FROM %I.experiences
         WHERE timestamp > (CURRENT_TIMESTAMP - interval ''24 hours'')
@@ -27,7 +27,7 @@ BEGIN
         LIMIT 50
     ),
     recent_thinking AS (
-        -- Активные процессы мышления
+        -- Active thinking processes
         SELECT tp.*, ph.id as last_phase_id, ph.content as last_phase_content
         FROM %I.thinking_processes tp
         LEFT JOIN %I.thinking_phases ph ON tp.id = ph.thinking_process_id
@@ -55,11 +55,11 @@ BEGIN
     ORDER BY timestamp DESC, salience DESC
     LIMIT 20', schema_name, schema_name, schema_name, schema_name, schema_name);
     
-    EXECUTE format('COMMENT ON VIEW %I.current_awareness IS $c$Представление текущего фокуса внимания АМИ - наиболее актуальные опыты и процессы мышления$c$', schema_name);
+    EXECUTE format('COMMENT ON VIEW %I.current_awareness IS $c$View of AMI''s current focus of attention - the most relevant experiences and thinking processes$c$', schema_name);
     
     -- =================================================================
-    -- Представление внутреннего потока мыслей
-    -- Включает опыты типа "мысль", "воспоминание", "инсайт"
+    -- Internal thought stream view
+    -- Includes experiences of type "thought", "memory_recall", "insight"
     -- =================================================================
     EXECUTE format('CREATE OR REPLACE VIEW %I.internal_thought_stream AS
     SELECT e.*,
@@ -75,11 +75,11 @@ BEGIN
       AND e.timestamp > (CURRENT_TIMESTAMP - interval ''7 days'')
     ORDER BY e.timestamp DESC', schema_name, schema_name, schema_name, schema_name);
     
-    EXECUTE format('COMMENT ON VIEW %I.internal_thought_stream IS $c$Внутренний поток мыслей АМИ - последовательность внутренних размышлений, воспоминаний и инсайтов$c$', schema_name);
+    EXECUTE format('COMMENT ON VIEW %I.internal_thought_stream IS $c$AMI''s internal thought stream - sequence of internal reflections, memories, and insights$c$', schema_name);
     
     -- =================================================================
-    -- Представление внешних взаимодействий
-    -- Включает опыты, связанные с внешними источниками
+    -- External interactions view
+    -- Includes experiences related to external sources
     -- =================================================================
     EXECUTE format('CREATE OR REPLACE VIEW %I.external_interaction_stream AS
     SELECT e.*,
@@ -95,11 +95,11 @@ BEGIN
       AND e.timestamp > (CURRENT_TIMESTAMP - interval ''7 days'')
     ORDER BY e.timestamp DESC', schema_name, schema_name, schema_name, schema_name, schema_name);
     
-    EXECUTE format('COMMENT ON VIEW %I.external_interaction_stream IS $c$Поток внешних взаимодействий АМИ - последовательность опытов, связанных с внешними источниками$c$', schema_name);
+    EXECUTE format('COMMENT ON VIEW %I.external_interaction_stream IS $c$AMI''s external interaction stream - sequence of experiences related to external sources$c$', schema_name);
     
     -- =================================================================
-    -- Представление диалоговых взаимодействий
-    -- Группирует опыты коммуникации по контекстам и участникам
+    -- Dialogue interactions view
+    -- Groups communication experiences by contexts and participants
     -- =================================================================
     EXECUTE format('CREATE OR REPLACE VIEW %I.dialogue_interactions AS
     SELECT 
@@ -123,11 +123,11 @@ BEGIN
         ec.active_status DESC,
         last_message_at DESC', schema_name, schema_name, schema_name, schema_name, schema_name);
     
-    EXECUTE format('COMMENT ON VIEW %I.dialogue_interactions IS $c$Представление диалоговых взаимодействий АМИ - разговоры с внешними источниками, сгруппированные по контекстам$c$', schema_name);
+    EXECUTE format('COMMENT ON VIEW %I.dialogue_interactions IS $c$View of AMI''s dialogue interactions - conversations with external sources grouped by contexts$c$', schema_name);
     
     -- =================================================================
-    -- Представление активных процессов мышления
-    -- Показывает текущие процессы размышления с их фазами
+    -- Active thinking processes view
+    -- Shows current thinking processes with their phases
     -- =================================================================
     EXECUTE format('CREATE OR REPLACE VIEW %I.active_thinking_processes AS
     WITH process_stats AS (
@@ -179,8 +179,8 @@ BEGIN
         tp.active_status DESC,
         tp.start_time DESC', schema_name, schema_name, schema_name, schema_name, schema_name);
     
-    EXECUTE format('COMMENT ON VIEW %I.active_thinking_processes IS $c$Представление активных процессов мышления АМИ - текущие размышления с детализацией по фазам$c$', schema_name);
+    EXECUTE format('COMMENT ON VIEW %I.active_thinking_processes IS $c$View of AMI''s active thinking processes - current thoughts with phase details$c$', schema_name);
     
-    RAISE NOTICE 'Представления уровня сознания успешно созданы';
+    RAISE NOTICE 'Consciousness level views successfully created';
 END;
 $$;

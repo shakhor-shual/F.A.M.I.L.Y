@@ -7,13 +7,8 @@ from sqlalchemy.orm import relationship
 
 from .base import Base
 from .consciousness import (
-    Participant,
-    MemoryContext, 
-    Experience,
-    ThoughtChain,
-    InformationResource,
-    ExperienceConnection,
-    setup_consciousness_relationships
+    ExperienceSource,
+    ExperienceContext
 )
 
 
@@ -24,7 +19,9 @@ def setup_relationships():
     работы с базой данных.
     """
     # Настройка отношений для сознательного уровня
-    setup_consciousness_relationships()
+    # В текущей реализации у нас нет сложных отношений, требующих 
+    # отдельной настройки, поэтому функция пуста
+    pass
     
     # В будущем здесь будет настройка отношений других уровней памяти
     # setup_subconsciousness_relationships()
@@ -38,12 +35,8 @@ __all__ = [
     'Base',
     
     # Сознательный уровень
-    'Participant',
-    'MemoryContext',
-    'Experience',
-    'ThoughtChain',
-    'InformationResource',
-    'ExperienceConnection',
+    'ExperienceSource',
+    'ExperienceContext',
     
     # Функция настройки отношений
     'setup_relationships'

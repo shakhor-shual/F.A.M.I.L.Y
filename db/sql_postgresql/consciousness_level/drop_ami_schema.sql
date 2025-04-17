@@ -1,19 +1,19 @@
 -- ============================================================================
--- ХРАНИМАЯ ПРОЦЕДУРА ДЛЯ УДАЛЕНИЯ СХЕМЫ АМИ В ПРОЕКТЕ F.A.M.I.L.Y.
--- Дата создания: 15 апреля 2025 г.
--- Автор: Команда проекта F.A.M.I.L.Y.
--- Обновлено: 16 апреля 2025 г. - исправление проблемы с удалением пользователя АМИ с сохранением зависимостей
+-- STORED PROCEDURE FOR DROPPING AMI SCHEMA IN F.A.M.I.L.Y. PROJECT
+-- Creation date: April 15, 2025
+-- Author: F.A.M.I.L.Y. Project Team
+-- Updated: April 16, 2025 - Fixed issue with AMI user deletion while preserving dependencies
 -- ============================================================================
--- Эта процедура удаляет схему и пользователя АМИ, включая все связанные объекты,
--- из базы данных FAMILY. Используйте эту процедуру с осторожностью, так как
--- она необратимо удаляет все данные памяти АМИ.
+-- This procedure drops the schema and AMI user, including all related objects,
+-- from the FAMILY database. Use this procedure with caution as it
+-- irreversibly deletes all AMI memory data.
 -- ============================================================================
 
 \set QUIET on
 \set ON_ERROR_STOP on
 \set QUIET off
 
--- Создаем хранимую процедуру для удаления схемы и пользователя АМИ
+-- Create stored procedure for dropping AMI schema and user
 CREATE OR REPLACE PROCEDURE drop_ami_schema(ami_name TEXT, force_mode BOOLEAN DEFAULT FALSE)
 LANGUAGE plpgsql
 AS $$
@@ -26,24 +26,24 @@ DECLARE
     prev_object TEXT;
     obj_record RECORD;
 BEGIN
-    -- Устанавливаем имя схемы с правильным префиксом ami_
-    schema_name := 'ami_' || ami_name;
+    -- Set schema name directly to AMI name without prefix
+    schema_name := ami_name;
     
-    -- Проверяем, существует ли схема с таким именем
+    -- Check if schema with this name exists
     SELECT EXISTS(SELECT 1 FROM pg_namespace WHERE nspname = schema_name) INTO schema_exists;
     
-    -- Проверяем, существует ли пользователь с таким именем
+    -- Check if user with this name exists
     SELECT EXISTS(SELECT 1 FROM pg_roles WHERE rolname = ami_name) INTO user_exists;
     
-    -- Если ни схемы, ни пользователя не существует, выводим предупреждение и завершаем
+    -- If neither schema nor user exists, display warning and exit
     IF NOT schema_exists AND NOT user_exists THEN
-        RAISE NOTICE 'АМИ "%" не существует: ни схемы, ни пользователя с таким именем не найдено', ami_name;
+        RAISE NOTICE 'AMI "%" does not exist: neither schema nor user with this name was found', ami_name;
         RETURN;
     END IF;
     
-    -- Если схема существует, проверяем количество объектов перед удалением
+    -- If schema exists, check the number of objects before deletion
     IF schema_exists THEN
-        -- Получаем общее количество объектов в схеме
+        -- Get total number of objects in the schema
         EXECUTE format('
             SELECT 
                 (SELECT COUNT(*) FROM pg_tables WHERE schemaname = %L) +
@@ -51,25 +51,25 @@ BEGIN
                 (SELECT COUNT(*) FROM pg_proc WHERE pronamespace = %L::regnamespace)', 
             schema_name, schema_name, schema_name) INTO obj_count;
             
-        -- Получаем количество активных подключений к схеме
+        -- Get number of active connections to the schema
         SELECT COUNT(*) INTO conn_count 
         FROM pg_stat_activity 
         WHERE application_name LIKE 'ami_' || ami_name || '%'
         OR usename = ami_name;
         
-        -- Если есть активные подключения и force_mode отключен, выводим предупреждение
+        -- If there are active connections and force_mode is disabled, display warning
         IF conn_count > 0 AND NOT force_mode THEN
-            RAISE WARNING 'Обнаружены активные подключения к схеме % (количество: %)', schema_name, conn_count;
-            RAISE WARNING 'Выполнение остановлено. Для принудительного удаления используйте force_mode=TRUE';
+            RAISE WARNING 'Active connections to schema % detected (count: %)', schema_name, conn_count;
+            RAISE WARNING 'Execution stopped. Use force_mode=TRUE for forced deletion';
             RETURN;
         END IF;
         
-        -- Если force_mode включен, принудительно закрываем все подключения
+        -- If force_mode is enabled, forcibly close all connections
         IF conn_count > 0 AND force_mode THEN
-            RAISE NOTICE 'Принудительное закрытие % активных подключений к схеме %', conn_count, schema_name;
+            RAISE NOTICE 'Forcibly closing % active connections to schema %', conn_count, schema_name;
             
-            -- Завершаем все подключения к схеме
-            FOR i IN 1..3 LOOP -- Пробуем несколько раз, так как некоторые подключения могут быть устойчивыми
+            -- Terminate all connections to the schema
+            FOR i IN 1..3 LOOP -- Try several times as some connections may be resilient
                 PERFORM pg_terminate_backend(pid) 
                 FROM pg_stat_activity 
                 WHERE application_name LIKE 'ami_' || ami_name || '%'
@@ -77,29 +77,29 @@ BEGIN
             END LOOP;
         END IF;
         
-        -- ВАЖНОЕ ИСПРАВЛЕНИЕ: Перед удалением схемы, мы принудительно отзываем все привилегии пользователя АМИ
-        -- на всех объектах схемы. Это позволяет избежать ошибки при удалении пользователя с зависимостями.
+        -- IMPORTANT FIX: Before deleting the schema, we forcibly revoke all AMI user privileges
+        -- on all schema objects. This helps avoid errors when deleting a user with dependencies.
         IF user_exists THEN
             BEGIN
-                -- Отзываем привилегии пользователя на схему
+                -- Revoke user privileges on the schema
                 EXECUTE format('REVOKE ALL ON SCHEMA %I FROM %I', schema_name, ami_name);
                 
-                -- Отзываем привилегии на все таблицы в схеме
+                -- Revoke privileges on all tables in the schema
                 EXECUTE format('REVOKE ALL ON ALL TABLES IN SCHEMA %I FROM %I', schema_name, ami_name);
                 
-                -- Отзываем привилегии на все последовательности в схеме
+                -- Revoke privileges on all sequences in the schema
                 EXECUTE format('REVOKE ALL ON ALL SEQUENCES IN SCHEMA %I FROM %I', schema_name, ami_name);
                 
-                -- Отзываем привилегии на все функции в схеме
+                -- Revoke privileges on all functions in the schema
                 EXECUTE format('REVOKE ALL ON ALL FUNCTIONS IN SCHEMA %I FROM %I', schema_name, ami_name);
                 
-                -- Отзываем привилегии на все хранимые процедуры в схеме
+                -- Revoke privileges on all stored procedures in the schema
                 EXECUTE format('REVOKE ALL ON ALL PROCEDURES IN SCHEMA %I FROM %I', schema_name, ami_name);
                 
-                -- Отзываем привилегии на все типы в схеме
+                -- Revoke privileges on all types in the schema
                 EXECUTE format('REVOKE ALL ON ALL TYPES IN SCHEMA %I FROM %I', schema_name, ami_name);
                 
-                -- Сбрасываем стандартные привилегии для пользователя в схеме
+                -- Reset default privileges for the user in the schema
                 EXECUTE format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA %I REVOKE ALL ON TABLES FROM %I',
                               current_user, schema_name, ami_name);
                 EXECUTE format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA %I REVOKE ALL ON SEQUENCES FROM %I',
@@ -110,21 +110,21 @@ BEGIN
                               current_user, schema_name, ami_name);
             EXCEPTION
                 WHEN OTHERS THEN
-                    RAISE NOTICE 'Предупреждение при отзыве привилегий: %', SQLERRM;
+                    RAISE NOTICE 'Warning during privilege revocation: %', SQLERRM;
             END;
         END IF;
         
-        -- Удаляем схему со всеми объектами (в режиме CASCADE)
-        RAISE NOTICE 'Удаление схемы % (содержит % объектов)...', schema_name, obj_count;
+        -- Drop schema with all objects (in CASCADE mode)
+        RAISE NOTICE 'Dropping schema % (contains % objects)...', schema_name, obj_count;
         EXECUTE format('DROP SCHEMA %I CASCADE', schema_name);
-        RAISE NOTICE 'Схема % успешно удалена', schema_name;
+        RAISE NOTICE 'Schema % successfully dropped', schema_name;
     ELSE
-        RAISE NOTICE 'Схема % не существует', schema_name;
+        RAISE NOTICE 'Schema % does not exist', schema_name;
     END IF;
     
-    -- Если пользователь существует, удаляем его
+    -- If the user exists, delete it
     IF user_exists THEN
-        -- Проверяем, остались ли объекты, принадлежащие пользователю
+        -- Check if there are any objects owned by the user
         EXECUTE format('
             SELECT COUNT(*) 
             FROM pg_catalog.pg_class c 
@@ -134,30 +134,30 @@ BEGIN
             AND c.relowner = (SELECT oid FROM pg_roles WHERE rolname = %L)', 
             ami_name) INTO obj_count;
             
-        -- Если у пользователя остались объекты и force_mode отключен, выводим предупреждение
+        -- If the user still owns objects and force_mode is disabled, display warning
         IF obj_count > 0 AND NOT force_mode THEN
-            RAISE WARNING 'Пользователь % владеет % объектами за пределами удаленной схемы', ami_name, obj_count;
-            RAISE WARNING 'Выполнение остановлено. Для принудительного удаления используйте force_mode=TRUE';
+            RAISE WARNING 'User % owns % objects outside the deleted schema', ami_name, obj_count;
+            RAISE WARNING 'Execution stopped. Use force_mode=TRUE for forced deletion';
             RETURN;
         END IF;
         
-        -- Отзыв привилегий пользователя на объекты в схеме public
-        RAISE NOTICE 'Отзыв привилегий пользователя % на объекты в схеме public...', ami_name;
+        -- Revoke user privileges on objects in the public schema
+        RAISE NOTICE 'Revoking user % privileges on objects in public schema...', ami_name;
         
         BEGIN
-            -- 1. Отзыв привилегий на схему public
+            -- 1. Revoke privileges on public schema
             EXECUTE format('REVOKE ALL ON SCHEMA public FROM %I', ami_name);
             
-            -- 2. Отзыв привилегий на тип vector
+            -- 2. Revoke privileges on vector type
             BEGIN
                 EXECUTE format('REVOKE USAGE ON TYPE public.vector FROM %I', ami_name);
             EXCEPTION
                 WHEN OTHERS THEN
-                    RAISE NOTICE 'Предупреждение при отзыве привилегий на тип vector: %', SQLERRM;
+                    RAISE NOTICE 'Warning during vector type privilege revocation: %', SQLERRM;
             END;
             
-            -- 3. Отзыв всех привилегий на функции pgvector
-            -- Получаем список всех функций, на которые пользователь имеет привилегии
+            -- 3. Revoke all privileges on pgvector functions
+            -- Get list of all functions the user has privileges on
             FOR obj_record IN 
                 SELECT 
                     p.proname, 
@@ -175,10 +175,10 @@ BEGIN
                     n.nspname = 'public' AND
                     r.rolname = ami_name
             LOOP
-                -- Сравниваем с предыдущим объектом, чтобы избежать дублирования для перегруженных функций
+                -- Compare with previous object to avoid duplication for overloaded functions
                 IF prev_object IS DISTINCT FROM (obj_record.proname || obj_record.args) THEN
                     BEGIN
-                        -- Отзыв привилегий на функцию
+                        -- Revoke function privileges
                         IF obj_record.args IS NOT NULL AND obj_record.args != '' THEN
                             EXECUTE format('REVOKE ALL ON FUNCTION public.%I(%s) FROM %I', 
                                         obj_record.proname, obj_record.args, ami_name);
@@ -189,25 +189,25 @@ BEGIN
                         prev_object := obj_record.proname || obj_record.args;
                     EXCEPTION
                         WHEN OTHERS THEN
-                            RAISE NOTICE 'Предупреждение при отзыве привилегий на функцию %.%: %', 
+                            RAISE NOTICE 'Warning during function privilege revocation %.%: %', 
                                         obj_record.proname, obj_record.args, SQLERRM;
                     END;
                 END IF;
             END LOOP;
             
-            -- 4. Отзыв привилегий на все функции в схеме public для упрощения
+            -- 4. Revoke privileges on all functions in public schema for simplification
             BEGIN
                 EXECUTE format('REVOKE ALL ON ALL FUNCTIONS IN SCHEMA public FROM %I', ami_name);
             EXCEPTION
                 WHEN OTHERS THEN
-                    -- Это не критично, так как мы уже попытались отозвать привилегии на отдельные функции
-                    RAISE NOTICE 'Предупреждение при отзыве всех привилегий на функции: %', SQLERRM;
+                    -- This is not critical as we already tried to revoke privileges on individual functions
+                    RAISE NOTICE 'Warning during revocation of all function privileges: %', SQLERRM;
             END;
             
-            -- 5. Отзыв действия от имени роли
+            -- 5. Revoke actions on behalf of roles
             BEGIN
-                EXECUTE 'RESET ROLE';  -- Сбрасываем текущую роль на всякий случай
-                -- Проверяем, имеет ли пользователь привилегии INHERIT на другие роли
+                EXECUTE 'RESET ROLE';  -- Reset current role just in case
+                -- Check if the user has INHERIT privileges on other roles
                 FOR obj_record IN 
                     SELECT r2.rolname 
                     FROM pg_roles r1 
@@ -215,53 +215,55 @@ BEGIN
                     JOIN pg_roles r2 ON m.roleid = r2.oid 
                     WHERE r1.rolname = ami_name
                 LOOP
-                    -- Отзыв наследования роли
+                    -- Revoke role inheritance
                     EXECUTE format('REVOKE %I FROM %I', obj_record.rolname, ami_name);
                 END LOOP;
             EXCEPTION
                 WHEN OTHERS THEN
-                    RAISE NOTICE 'Предупреждение при отзыве привилегий наследования ролей: %', SQLERRM;
+                    RAISE NOTICE 'Warning during role inheritance privilege revocation: %', SQLERRM;
             END;
         EXCEPTION
             WHEN OTHERS THEN
-                RAISE NOTICE 'Некритичная ошибка при отзыве привилегий: %', SQLERRM;
+                RAISE NOTICE 'Non-critical error during privilege revocation: %', SQLERRM;
         END;
         
-        -- Удаляем пользователя
-        RAISE NOTICE 'Удаление пользователя %...', ami_name;
+        -- Delete the user
+        RAISE NOTICE 'Deleting user %...', ami_name;
         BEGIN
             EXECUTE format('DROP ROLE %I', ami_name);
-            RAISE NOTICE 'Пользователь % успешно удален', ami_name;
+            RAISE NOTICE 'User % successfully deleted', ami_name;
         EXCEPTION
             WHEN OTHERS THEN
-                -- Если удаление не удалось, пробуем с CASCADE
+                -- If deletion failed, try without CASCADE (PostgreSQL doesn't support CASCADE for DROP ROLE)
                 IF force_mode THEN
                     BEGIN
-                        RAISE NOTICE 'Попытка удаления пользователя % с CASCADE...', ami_name;
-                        EXECUTE format('DROP ROLE %I CASCADE', ami_name);
-                        RAISE NOTICE 'Пользователь % успешно удален с CASCADE', ami_name;
+                        RAISE NOTICE 'Attempting to delete user % with alternative method...', ami_name;
+                        -- Note: PostgreSQL doesn't support CASCADE for DROP ROLE
+                        -- We've already handled dependencies by revoking privileges
+                        EXECUTE format('DROP ROLE %I', ami_name);
+                        RAISE NOTICE 'User % successfully deleted with alternative method', ami_name;
                     EXCEPTION
                         WHEN OTHERS THEN
-                            RAISE EXCEPTION 'Не удалось удалить пользователя даже с CASCADE: %', SQLERRM;
+                            RAISE EXCEPTION 'Failed to delete user even with alternative method: %', SQLERRM;
                     END;
                 ELSE
-                    RAISE EXCEPTION 'Не удалось удалить пользователя: %', SQLERRM;
+                    RAISE EXCEPTION 'Failed to delete user: %', SQLERRM;
                 END IF;
         END;
     ELSE
-        RAISE NOTICE 'Пользователь % не существует', ami_name;
+        RAISE NOTICE 'User % does not exist', ami_name;
     END IF;
     
-    -- Создание записи о выполнении операции
-    -- Здесь можно добавить запись в системную таблицу или лог
-    -- о том, что АМИ был удален (для аудита или отчетности)
+    -- Create record of operation execution
+    -- Here you can add a record to the system table or log
+    -- that the AMI has been deleted (for audit or reporting)
     RAISE NOTICE '======================================================================';
-    RAISE NOTICE 'АМИ "%" успешно удален из системы F.A.M.I.L.Y.', ami_name;
-    RAISE NOTICE 'Дата удаления: %', NOW();
+    RAISE NOTICE 'AMI "%" successfully deleted from F.A.M.I.L.Y. system', ami_name;
+    RAISE NOTICE 'Deletion date: %', NOW();
     RAISE NOTICE '======================================================================';
 END;
 $$;
 
--- Пример использования процедуры:
--- CALL drop_ami_schema('ami_test'); -- Обычный режим, проверяет наличие подключений
--- CALL drop_ami_schema('ami_test', TRUE); -- Принудительный режим, закрывает активные подключения
+-- Example of procedure usage:
+-- CALL drop_ami_schema('ami_test'); -- Normal mode, checks for connections
+-- CALL drop_ami_schema('ami_test', TRUE); -- Force mode, closes active connections

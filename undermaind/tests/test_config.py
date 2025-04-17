@@ -118,7 +118,7 @@ class TestConfig:
             assert config.DB_HOST == "localhost"
             assert config.DB_PORT == 5432
             assert config.DB_NAME == "family_memory_db"
-            assert config.DB_SCHEMA == "ami_memory"
+            assert config.DB_SCHEMA == "memory"  # Обновлено: было "ami_memory", теперь "memory"
             assert config.DB_POOL_SIZE == 5
             assert config.DB_POOL_RECYCLE == 3600
             assert config.DB_ECHO_SQL is False
