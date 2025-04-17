@@ -88,14 +88,15 @@ BEGIN
         end_time TIMESTAMP WITH TIME ZONE NULL,
         active_status BOOLEAN DEFAULT TRUE,
         completed_status BOOLEAN DEFAULT FALSE,
+        completion_time TIMESTAMP WITH TIME ZONE,
         
         -- Phase content
         content TEXT NOT NULL,
         content_vector vector(1536),
         
         -- Connections with sources and results
-        input_experience_ids INTEGER[],
-        output_experience_ids INTEGER[],
+        input_experience_ids INTEGER[] DEFAULT ARRAY[]::INTEGER[],
+        output_experience_ids INTEGER[] DEFAULT ARRAY[]::INTEGER[],
         
         -- Meta information
         description TEXT,

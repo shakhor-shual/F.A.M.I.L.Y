@@ -141,6 +141,74 @@ class ExperienceSource(Base):
             
         return self_source
     
+    @classmethod
+    def create(cls, session, name: str, source_type: str, 
+               information_category: str, **kwargs) -> 'ExperienceSource':
+        """
+        Создает новый источник опыта.
+        
+        Args:
+            session: Сессия SQLAlchemy
+            name: Имя источника
+            source_type: Тип источника
+            information_category: Категория информации
+            **kwargs: Дополнительные параметры
+            
+        Returns:
+            ExperienceSource: Созданный источник опыта
+        """
+        source = cls(
+            name=name,
+            source_type=source_type,
+            information_category=information_category,
+            **kwargs
+        )
+        session.add(source)
+        session.flush()
+        return source
+
+    @classmethod
+    def get_by_id(cls, session, source_id: int) -> Optional['ExperienceSource']:
+        """
+        Получает источник по его ID.
+        
+        Args:
+            session: Сессия SQLAlchemy
+            source_id: ID источника
+            
+        Returns:
+            Optional[ExperienceSource]: Найденный источник или None
+        """
+        return session.query(cls).filter(cls.id == source_id).first()
+    
+    @classmethod
+    def find_by_name(cls, session, name: str) -> Optional['ExperienceSource']:
+        """
+        Ищет источник по имени.
+        
+        Args:
+            session: Сессия SQLAlchemy
+            name: Имя источника
+            
+        Returns:
+            Optional[ExperienceSource]: Найденный источник или None
+        """
+        return session.query(cls).filter(cls.name == name).first()
+
+    def update(self, **kwargs) -> None:
+        """
+        Обновляет атрибуты источника.
+        
+        Args:
+            **kwargs: Пары ключ-значение для обновления
+        """
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+        
+        # Автоматически обновляем метрики взаимодействия
+        self.update_interaction_metrics()
+    
     def update_interaction_metrics(self):
         """Обновляет метрики взаимодействия с источником."""
         self.last_interaction = datetime.now()

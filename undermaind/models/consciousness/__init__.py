@@ -1,15 +1,21 @@
 """
-Модуль моделей для уровня сознания АМИ.
-
-Этот модуль экспортирует модели, соответствующие структурам данных
-сознательного уровня памяти АМИ, которые хранят опыт и механизмы мышления.
+Модели для уровня сознания АМИ.
 """
 
-from undermaind.models.consciousness.experience_sources import ExperienceSource
-from undermaind.models.consciousness.experience_contexts import ExperienceContext
+from .experience import Experience
+from .experience_contexts import ExperienceContext
+from .experience_sources import ExperienceSource
+from .thinking_process import ThinkingProcess
+from .thinking_phase import ThinkingPhase
+from .experience_connection import ExperienceConnection
+from .experience_attribute import ExperienceAttribute
 
-# Публичный API модуля
 __all__ = [
+    'Experience',
+    'ExperienceContext',
     'ExperienceSource',
-    'ExperienceContext'
+    'ThinkingProcess',
+    'ThinkingPhase',
+    'ExperienceConnection',
+    'ExperienceAttribute'
 ]

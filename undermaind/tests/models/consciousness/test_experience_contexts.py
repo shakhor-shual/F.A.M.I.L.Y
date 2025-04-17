@@ -295,3 +295,94 @@ class TestExperienceContext:
         assert context_dict["active_status"] is True, "Статус активности в словаре должен соответствовать атрибуту объекта"
         assert context_dict["summary"] == "Тестовое описание для проверки метода to_dict", "Описание в словаре должно соответствовать атрибуту объекта"
         assert "test" in context_dict["tags"], "Теги в словаре должны соответствовать атрибуту объекта"
+
+    def test_create_class_method(self, db_session_postgres):
+        """Проверяет создание контекста через классовый метод create."""
+        # Создаем контекст через метод create
+        context = ExperienceContext.create(
+            db_session_postgres,
+            title="Created Via Method",
+            context_type=ExperienceContext.CONTEXT_TYPE_CONVERSATION,
+            summary="Тестовый контекст, созданный через метод create",
+            tags=["test", "create_method"]
+        )
+        
+        # Проверяем, что объект создан и имеет ID
+        assert context.id is not None, "Контекст должен получить ID"
+        assert context.title == "Created Via Method", "Заголовок должен соответствовать"
+        assert "test" in context.tags, "Теги должны быть установлены"
+        
+        # Проверяем, что запись существует в БД
+        db_context = ExperienceContext.get_by_id(db_session_postgres, context.id)
+        assert db_context is not None, "Контекст должен быть найден в БД"
+        assert db_context.id == context.id, "ID должны совпадать"
+
+    def test_get_by_id(self, db_session_postgres):
+        """Проверяет получение контекста по ID."""
+        # Создаем тестовый контекст
+        context = ExperienceContext(
+            title="Get By ID Test",
+            context_type=ExperienceContext.CONTEXT_TYPE_TASK
+        )
+        db_session_postgres.add(context)
+        db_session_postgres.commit()
+        
+        # Получаем контекст по ID
+        found_context = ExperienceContext.get_by_id(db_session_postgres, context.id)
+        assert found_context is not None, "Контекст должен быть найден"
+        assert found_context.id == context.id, "ID должны совпадать"
+        assert found_context.title == "Get By ID Test", "Заголовок должен совпадать"
+        
+        # Проверяем поиск несуществующего ID
+        nonexistent = ExperienceContext.get_by_id(db_session_postgres, 99999)
+        assert nonexistent is None, "Должен вернуться None для несуществующего ID"
+
+    def test_get_active_contexts(self, db_session_postgres):
+        """Проверяет получение списка активных контекстов."""
+        # Создаем активный контекст
+        active_context = ExperienceContext(
+            title="Active Context",
+            context_type=ExperienceContext.CONTEXT_TYPE_CONVERSATION,
+            active_status=True
+        )
+        db_session_postgres.add(active_context)
+        
+        # Создаем закрытый контекст
+        closed_context = ExperienceContext(
+            title="Closed Context",
+            context_type=ExperienceContext.CONTEXT_TYPE_TASK,
+            active_status=False
+        )
+        db_session_postgres.add(closed_context)
+        db_session_postgres.commit()
+        
+        # Получаем список активных контекстов
+        active_contexts = ExperienceContext.get_active_contexts(db_session_postgres)
+        assert len(active_contexts) > 0, "Должен быть как минимум один активный контекст"
+        assert active_context.id in [c.id for c in active_contexts], "Активный контекст должен быть в списке"
+        assert closed_context.id not in [c.id for c in active_contexts], "Закрытый контекст не должен быть в списке"
+
+    def test_update_method(self, db_session_postgres):
+        """Проверяет метод update для обновления атрибутов контекста."""
+        # Создаем тестовый контекст
+        context = ExperienceContext(
+            title="Original Title",
+            context_type=ExperienceContext.CONTEXT_TYPE_RESEARCH,
+            summary="Original summary"
+        )
+        db_session_postgres.add(context)
+        db_session_postgres.commit()
+        
+        # Обновляем атрибуты через метод update
+        context.update(
+            title="Updated Title",
+            summary="Updated summary",
+            active_status=False
+        )
+        db_session_postgres.commit()
+        
+        # Получаем обновленный контекст из БД
+        updated_context = db_session_postgres.query(ExperienceContext).filter_by(id=context.id).first()
+        assert updated_context.title == "Updated Title", "Заголовок должен быть обновлен"
+        assert updated_context.summary == "Updated summary", "Описание должно быть обновлено"
+        assert not updated_context.active_status, "Статус активности должен быть обновлен"

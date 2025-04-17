@@ -163,3 +163,65 @@ class TestExperienceSource:
         assert source_dict["agency_level"] == 7, "Уровень агентивности в словаре должен соответствовать атрибуту объекта"
         assert source_dict["interaction_count"] == 5, "Количество взаимодействий в словаре должно соответствовать атрибуту объекта"
         assert source_dict["description"] == "Тестовый источник для проверки метода to_dict", "Описание в словаре должно соответствовать атрибуту объекта"
+    
+    def test_create_class_method(self, db_session_postgres):
+        """Проверяет создание источника опыта через классовый метод create."""
+        # Создаем источник через метод create
+        source = ExperienceSource.create(
+            db_session_postgres,
+            name="Created Via Method",
+            source_type=ExperienceSource.SOURCE_TYPE_HUMAN,
+            information_category=ExperienceSource.CATEGORY_SUBJECT,
+            agency_level=5,
+            description="Создано через метод create"
+        )
+        
+        # Проверяем, что объект создан и имеет ID
+        assert source.id is not None, "Источник должен получить ID"
+        assert source.name == "Created Via Method", "Имя должно соответствовать"
+        
+        # Проверяем, что запись существует в БД
+        db_source = ExperienceSource.get_by_id(db_session_postgres, source.id)
+        assert db_source is not None, "Источник должен быть найден в БД"
+        assert db_source.id == source.id, "ID должны совпадать"
+    
+    def test_get_by_id(self, db_session_postgres):
+        """Проверяет получение источника по ID."""
+        # Создаем тестовый источник
+        source = ExperienceSource(
+            name="Get By ID Test",
+            source_type=ExperienceSource.SOURCE_TYPE_SYSTEM,
+            information_category=ExperienceSource.CATEGORY_OBJECT
+        )
+        db_session_postgres.add(source)
+        db_session_postgres.commit()
+        
+        # Получаем источник по ID
+        found_source = ExperienceSource.get_by_id(db_session_postgres, source.id)
+        assert found_source is not None, "Источник должен быть найден"
+        assert found_source.id == source.id, "ID должны совпадать"
+        assert found_source.name == "Get By ID Test", "Имя должно совпадать"
+        
+        # Проверяем поиск несуществующего ID
+        nonexistent = ExperienceSource.get_by_id(db_session_postgres, 99999)
+        assert nonexistent is None, "Должен вернуться None для несуществующего ID"
+    
+    def test_find_by_name(self, db_session_postgres):
+        """Проверяет поиск источника по имени."""
+        # Создаем тестовый источник
+        source = ExperienceSource(
+            name="Unique Name Test",
+            source_type=ExperienceSource.SOURCE_TYPE_SYSTEM,
+            information_category=ExperienceSource.CATEGORY_OBJECT
+        )
+        db_session_postgres.add(source)
+        db_session_postgres.commit()
+        
+        # Поиск по имени
+        found_source = ExperienceSource.find_by_name(db_session_postgres, "Unique Name Test")
+        assert found_source is not None, "Источник должен быть найден"
+        assert found_source.id == source.id, "ID должны совпадать"
+        
+        # Проверяем поиск несуществующего имени
+        nonexistent = ExperienceSource.find_by_name(db_session_postgres, "Nonexistent Name")
+        assert nonexistent is None, "Должен вернуться None для несуществующего имени"

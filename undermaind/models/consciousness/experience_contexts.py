@@ -152,3 +152,64 @@ class ExperienceContext(Base):
     def __repr__(self) -> str:
         status = "активный" if self.active_status else "закрытый"
         return f"<ExperienceContext(id={self.id}, title='{self.title}', status='{status}')>"
+
+    @classmethod
+    def create(cls, session, title: str, context_type: str, **kwargs) -> 'ExperienceContext':
+        """
+        Создает новый контекст опыта.
+        
+        Args:
+            session: Сессия SQLAlchemy
+            title: Название контекста
+            context_type: Тип контекста
+            **kwargs: Дополнительные параметры
+            
+        Returns:
+            ExperienceContext: Созданный контекст
+        """
+        context = cls(
+            title=title,
+            context_type=context_type,
+            **kwargs
+        )
+        session.add(context)
+        session.flush()
+        return context
+
+    @classmethod
+    def get_by_id(cls, session, context_id: int) -> Optional['ExperienceContext']:
+        """
+        Получает контекст по его ID.
+        
+        Args:
+            session: Сессия SQLAlchemy
+            context_id: ID контекста
+            
+        Returns:
+            Optional[ExperienceContext]: Найденный контекст или None
+        """
+        return session.query(cls).filter(cls.id == context_id).first()
+    
+    @classmethod
+    def get_active_contexts(cls, session) -> List['ExperienceContext']:
+        """
+        Получает список всех активных контекстов.
+        
+        Args:
+            session: Сессия SQLAlchemy
+            
+        Returns:
+            List[ExperienceContext]: Список активных контекстов
+        """
+        return session.query(cls).filter(cls.active_status == True).all()
+
+    def update(self, **kwargs) -> None:
+        """
+        Обновляет атрибуты контекста.
+        
+        Args:
+            **kwargs: Пары ключ-значение для обновления
+        """
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
