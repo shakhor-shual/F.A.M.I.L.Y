@@ -189,7 +189,8 @@ class Experience(Base):
             'parent_experience_id': self.parent_experience_id,
             'response_to_experience_id': self.response_to_experience_id,
             'thinking_process_id': self.thinking_process_id,
-            'emotional_evaluation_id': self.emotional_evaluation_id
+            'emotional_evaluation_id': self.emotional_evaluation_id,
+            'meta_data': self.meta_data
         }
 
     def __repr__(self) -> str:

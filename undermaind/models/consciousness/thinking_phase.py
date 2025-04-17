@@ -148,8 +148,11 @@ class ThinkingPhase(Base):
         Args:
             experience: Объект опыта
         """
+        if not self.input_experience_ids:
+            self.input_experience_ids = []
         if experience.id not in self.input_experience_ids:
-            self.input_experience_ids.append(experience.id)
+            # Используем оператор конкатенации массивов PostgreSQL
+            self.input_experience_ids = self.input_experience_ids + [experience.id]
 
     def add_output_experience(self, experience) -> None:
         """
@@ -158,8 +161,11 @@ class ThinkingPhase(Base):
         Args:
             experience: Объект опыта
         """
+        if not self.output_experience_ids:
+            self.output_experience_ids = []
         if experience.id not in self.output_experience_ids:
-            self.output_experience_ids.append(experience.id)
+            # Используем оператор конкатенации массивов PostgreSQL
+            self.output_experience_ids = self.output_experience_ids + [experience.id]
 
     def __repr__(self) -> str:
         status = "завершенная" if self.completed_status else "активная"
