@@ -110,3 +110,52 @@ def find_most_similar(query_vector: np.ndarray, vectors: List[np.ndarray], top_n
     
     # Возвращаем top_n наиболее похожих
     return similarities[:top_n]
+
+
+# Добавляем глобальные функции для работы с векторами
+
+def cosine_similarity(vec1: np.ndarray, vec2: np.ndarray) -> float:
+    """
+    Вычисляет косинусное сходство между двумя векторами.
+    
+    Args:
+        vec1 (np.ndarray): Первый вектор
+        vec2 (np.ndarray): Второй вектор
+        
+    Returns:
+        float: Косинусное сходство (от 0 до 1, где 1 - идентичные векторы)
+    """
+    # Преобразуем в numpy массивы, если это не np.ndarray
+    if not isinstance(vec1, np.ndarray):
+        vec1 = np.array(vec1)
+    if not isinstance(vec2, np.ndarray):
+        vec2 = np.array(vec2)
+    
+    # Нормализация векторов
+    vec1_normalized = vec1 / np.linalg.norm(vec1)
+    vec2_normalized = vec2 / np.linalg.norm(vec2)
+    
+    # Косинусное сходство
+    similarity = np.dot(vec1_normalized, vec2_normalized)
+    
+    return float(similarity)
+
+
+def vectorize_text(text: str, model_name: str = "sentence-transformers/all-MiniLM-L6-v2") -> np.ndarray:
+    """
+    Преобразует текст в векторное представление.
+    
+    Args:
+        text (str): Текст для векторизации
+        model_name (str): Название модели для векторизации
+        
+    Returns:
+        np.ndarray: Векторное представление текста
+    """
+    # Создаем экземпляр VectorEncoder с указанной моделью
+    encoder = VectorEncoder(model_name=model_name)
+    
+    # Кодируем текст в вектор
+    vector = encoder.encode(text)
+    
+    return vector

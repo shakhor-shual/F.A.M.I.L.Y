@@ -1,0 +1,174 @@
+{
+  "schema_version": "1.0.0",
+  "name": "F.A.M.I.L.Y. Documentation Server",
+  "description": "MCP-сервер для документации проекта F.A.M.I.L.Y., предоставляющий АМИ доступ к архитектурной информации и диаграммам",
+  "server": {
+    "endpoint": "http://localhost:8080/mcp/v1/query",
+    "auth": {
+      "type": "none"
+    }
+  },
+  "capabilities": {
+    "context_retrieval": true,
+    "action_execution": true
+  },
+  "actions": [
+    {
+      "name": "get_diagrams",
+      "description": "Получить список всех доступных диаграмм из базы знаний F.A.M.I.L.Y.",
+      "parameters": []
+    },
+    {
+      "name": "get_diagram",
+      "description": "Получить детальную информацию о конкретной диаграмме по ID",
+      "parameters": [
+        {
+          "name": "diagram_id",
+          "description": "Идентификатор диаграммы",
+          "type": "number",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "get_diagrams_by_type",
+      "description": "Получить диаграммы определенного типа (architecture, component, sequence и т.д.)",
+      "parameters": [
+        {
+          "name": "diagram_type",
+          "description": "Тип диаграммы для поиска",
+          "type": "string",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "search_diagrams",
+      "description": "Поиск диаграмм по ключевым словам",
+      "parameters": [
+        {
+          "name": "query",
+          "description": "Поисковый запрос",
+          "type": "string",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "create_diagram",
+      "description": "Создать новую диаграмму в системе F.A.M.I.L.Y.",
+      "parameters": [
+        {
+          "name": "name",
+          "description": "Название диаграммы",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "description",
+          "description": "Описание диаграммы",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "diagram_type",
+          "description": "Тип диаграммы (architecture, component, sequence и т.д.)",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "content",
+          "description": "Содержимое диаграммы в формате JSON",
+          "type": "object",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "update_diagram",
+      "description": "Обновить существующую диаграмму",
+      "parameters": [
+        {
+          "name": "diagram_id",
+          "description": "Идентификатор диаграммы для обновления",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "name",
+          "description": "Новое название диаграммы",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "description",
+          "description": "Новое описание диаграммы",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "content",
+          "description": "Новое содержимое диаграммы в формате JSON",
+          "type": "object",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "verify_diagram",
+      "description": "Верифицировать диаграмму (подтвердить её точность)",
+      "parameters": [
+        {
+          "name": "diagram_id",
+          "description": "Идентификатор диаграммы для верификации",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "verified_by",
+          "description": "Кто верифицировал диаграмму (АМИ или инженер)",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "status",
+          "description": "Статус верификации (approved, rejected, needs_revision)",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "notes",
+          "description": "Заметки о верификации",
+          "type": "string",
+          "required": false
+        }
+      ]
+    }
+  ],
+  "context_retrieval": {
+    "message_context": {
+      "enabled": true,
+      "max_length": 4000
+    },
+    "file_context": {
+      "enabled": true
+    }
+  },
+  "memory_integration": {
+    "enabled": true,
+    "memory_levels": [
+      {
+        "name": "consciousness",
+        "description": "Сознательный уровень памяти АМИ - явные воспоминания и опыт"
+      },
+      {
+        "name": "subconsciousness",
+        "description": "Подсознательный уровень памяти АМИ - скрытые связи и ассоциации"
+      },
+      {
+        "name": "deepmind",
+        "description": "Глубинный уровень памяти АМИ - базовые принципы и абстрактные знания"
+      }
+    ]
+  }
+}

@@ -1,9 +1,9 @@
 """
-Настройка и создание SQLAlchemy engine.
+SQLAlchemy engine configuration and creation.
 
-Модуль предоставляет функции для создания и настройки движка SQLAlchemy
-для работы с PostgreSQL и расширением pgvector, с учетом разделения прав
-между администраторами (создание таблиц) и обычными пользователями (чтение/запись).
+This module provides functions to create and configure SQLAlchemy engine
+for working with PostgreSQL and pgvector extension, taking into account the separation
+of privileges between administrators (table creation) and regular users (read/write operations).
 """
 
 import logging
@@ -12,18 +12,54 @@ from sqlalchemy.engine.url import URL
 from sqlalchemy.exc import SQLAlchemyError
 from ..config import Config
 
-# Настройка логирования
+# Logger setup
 logger = logging.getLogger(__name__)
+
+# Global engine instance for use throughout the application
+_global_engine = None
+
+def get_engine(config=None, for_admin_tasks=False):
+    """
+    Returns global SQLAlchemy engine instance or creates a new one if it doesn't exist yet.
+    
+    Args:
+        config (Config, optional): Configuration object. If not specified,
+                                  default configuration from config module will be used.
+        for_admin_tasks (bool, optional): If True, engine is created for administrative
+                                        tasks. Defaults to False.
+                                       
+    Returns:
+        Engine: SQLAlchemy Engine
+    """
+    global _global_engine
+    
+    if _global_engine is None or for_admin_tasks:
+        # If configuration is not provided, use default settings
+        if config is None:
+            from ..config import get_config
+            config = get_config()
+            
+        # Create new engine
+        _global_engine = create_db_engine(config, for_admin_tasks)
+        
+        # Log connection information
+        engine_info = f"{config.DB_USERNAME}@{config.DB_HOST}:{config.DB_PORT}/{config.DB_NAME}"
+        if for_admin_tasks:
+            logger.info(f"Created administrative engine: {engine_info}")
+        else:
+            logger.info(f"Created standard engine: {engine_info}")
+    
+    return _global_engine
 
 
 def create_db_engine(config: Config, for_admin_tasks=False):
     """
-    Создает и настраивает движок SQLAlchemy для работы с PostgreSQL+pgvector.
+    Creates and configures SQLAlchemy engine for PostgreSQL+pgvector.
     
     Args:
-        config (Config): Объект конфигурации с параметрами подключения
-        for_admin_tasks (bool, optional): Если True, движок создается для административных
-                                        задач (создание схем, таблиц). По умолчанию False.
+        config (Config): Configuration object with connection parameters
+        for_admin_tasks (bool, optional): If True, engine is created for administrative
+                                        tasks (schema and table creation). Defaults to False.
         
     Returns:
         Engine: SQLAlchemy Engine
@@ -37,42 +73,42 @@ def create_db_engine(config: Config, for_admin_tasks=False):
         database=config.DB_NAME
     )
     
-    # Создаем явные параметры для пула соединений
+    # Create explicit parameters for connection pool
     engine_kwargs = {
         'pool_pre_ping': True,
         'echo': config.DB_ECHO_SQL
     }
     
-    # Добавляем параметры пула, только если они определены в конфигурации
+    # Add pool parameters only if they are defined in configuration
     if hasattr(config, 'DB_POOL_SIZE') and isinstance(config.DB_POOL_SIZE, (int)):
-        engine_kwargs['pool_size'] = max(1, config.DB_POOL_SIZE)  # Минимум 1 соединение
+        engine_kwargs['pool_size'] = max(1, config.DB_POOL_SIZE)  # Minimum 1 connection
     
     if hasattr(config, 'DB_POOL_RECYCLE') and isinstance(config.DB_POOL_RECYCLE, (int)):
         engine_kwargs['pool_recycle'] = config.DB_POOL_RECYCLE
     
-    # Формируем опции для создания соединения в зависимости от типа пользователя
+    # Form connection options depending on user type
     if for_admin_tasks:
-        # Для админских задач устанавливаем отдельный пул, чтобы избежать
-        # конфликтов с обычными соединениями
+        # For admin tasks, set a separate pool to avoid
+        # conflicts with regular connections
         if 'pool_size' in engine_kwargs:
-            # Для админских задач используем меньший пул
+            # For admin tasks, use a smaller pool
             engine_kwargs['pool_size'] = min(2, engine_kwargs['pool_size'])
         
-        # Используем параметр connect_args для отличия админского пула
+        # Use connect_args parameter to distinguish admin pool
         connect_args = engine_kwargs.get('connect_args', {})
         connect_args['application_name'] = f"family_admin_{config.DB_USERNAME}"
         engine_kwargs['connect_args'] = connect_args
         
-        logger.debug(f"Создание административного движка для пользователя {config.DB_USERNAME}")
+        logger.debug(f"Creating administrative engine for user {config.DB_USERNAME}")
     else:
-        # Для обычных задач устанавливаем схему по умолчанию
+        # For regular tasks, set default schema
         if hasattr(config, 'DB_SCHEMA') and config.DB_SCHEMA:
-            # Добавляем имя схемы к опциям подключения
+            # Add schema name to connection options
             connect_args = engine_kwargs.get('connect_args', {})
             connect_args['options'] = f"-c search_path={config.DB_SCHEMA}"
             engine_kwargs['connect_args'] = connect_args
             
-            logger.debug(f"Установлена схема по умолчанию: {config.DB_SCHEMA}")
+            logger.debug(f"Default schema set: {config.DB_SCHEMA}")
     
     engine = create_engine(
         connection_url,
@@ -84,57 +120,57 @@ def create_db_engine(config: Config, for_admin_tasks=False):
 
 def is_admin_engine(engine):
     """
-    Проверяет, является ли движок административным (имеет права на создание таблиц).
+    Checks if engine has administrative privileges (can create tables).
     
     Args:
-        engine: SQLAlchemy Engine для проверки
+        engine: SQLAlchemy Engine to check
         
     Returns:
-        bool: True, если движок имеет административные права
+        bool: True if engine has administrative privileges
     """
-    # Проверяем логин пользователя
+    # Check user login
     username = engine.url.username
-    # family_admin или другие пользователи с именем, содержащим admin,
-    # считаются административными
+    # family_admin or other users with name containing admin
+    # are considered administrative
     return username == 'family_admin' or 'admin' in username.lower()
 
 
 def ensure_schema_exists(engine, schema_name):
     """
-    Проверяет существование схемы в базе данных. Не создает схему,
-    только проверяет её наличие.
+    Checks if schema exists in database. Does not create schema,
+    only verifies its existence.
     
     Args:
-        engine: SQLAlchemy Engine для подключения к БД
-        schema_name (str): Имя схемы для проверки
+        engine: SQLAlchemy Engine for DB connection
+        schema_name (str): Schema name to check
         
     Returns:
-        bool: True, если схема существует
+        bool: True if schema exists
     """
     try:
         inspector = inspect(engine)
         schemas = inspector.get_schema_names()
         return schema_name in schemas
     except SQLAlchemyError as e:
-        logger.error(f"Ошибка при проверке существования схемы {schema_name}: {e}")
+        logger.error(f"Error checking schema existence {schema_name}: {e}")
         return False
 
 
 def verify_table_access(engine, schema_name, table_name):
     """
-    Проверяет доступ пользователя к таблице (права на чтение/запись).
+    Checks user access to table (read/write permissions).
     
     Args:
-        engine: SQLAlchemy Engine для подключения к БД
-        schema_name (str): Имя схемы
-        table_name (str): Имя таблицы
+        engine: SQLAlchemy Engine for DB connection
+        schema_name (str): Schema name
+        table_name (str): Table name
         
     Returns:
-        dict: Словарь с информацией о доступных правах (select, insert, update, delete)
+        dict: Dictionary with information about available permissions (select, insert, update, delete)
     """
     try:
         with engine.connect() as conn:
-            # Проверяем существование таблицы
+            # Check table existence
             inspector = inspect(engine)
             if not table_name in inspector.get_table_names(schema=schema_name):
                 return {
@@ -145,17 +181,17 @@ def verify_table_access(engine, schema_name, table_name):
                     "delete": False
                 }
             
-            # Проверяем права на SELECT
+            # Check SELECT permissions
             try:
                 conn.execute(text(f"SELECT 1 FROM {schema_name}.{table_name} LIMIT 0"))
                 select_access = True
             except SQLAlchemyError:
                 select_access = False
             
-            # Проверяем права на INSERT
+            # Check INSERT permissions
             insert_access = False
             try:
-                # Используем прямой запрос для проверки прав на INSERT
+                # Use direct query to check INSERT permissions
                 result = conn.execute(text(f"""
                     SELECT has_table_privilege(
                         current_user, 
@@ -167,7 +203,7 @@ def verify_table_access(engine, schema_name, table_name):
             except SQLAlchemyError:
                 insert_access = False
             
-            # Проверяем права на UPDATE
+            # Check UPDATE permissions
             update_access = False
             try:
                 result = conn.execute(text(f"""
@@ -181,7 +217,7 @@ def verify_table_access(engine, schema_name, table_name):
             except SQLAlchemyError:
                 update_access = False
             
-            # Проверяем права на DELETE
+            # Check DELETE permissions
             delete_access = False
             try:
                 result = conn.execute(text(f"""
@@ -195,7 +231,7 @@ def verify_table_access(engine, schema_name, table_name):
             except SQLAlchemyError:
                 delete_access = False
             
-            # Возвращаем результат проверки прав
+            # Return permission check result
             return {
                 "exists": True,
                 "select": select_access,
@@ -204,7 +240,7 @@ def verify_table_access(engine, schema_name, table_name):
                 "delete": delete_access
             }
     except SQLAlchemyError as e:
-        logger.error(f"Ошибка при проверке прав доступа к таблице {schema_name}.{table_name}: {e}")
+        logger.error(f"Error checking table access permissions {schema_name}.{table_name}: {e}")
         return {
             "exists": False, 
             "select": False, 
@@ -217,17 +253,17 @@ def verify_table_access(engine, schema_name, table_name):
 
 def verify_pgvector_support(engine):
     """
-    Проверяет поддержку расширения pgvector в текущей базе данных.
+    Checks pgvector extension support in current database.
     
     Args:
-        engine: SQLAlchemy Engine для подключения к БД
+        engine: SQLAlchemy Engine for DB connection
         
     Returns:
-        bool: True, если pgvector поддерживается
+        bool: True if pgvector is supported
     """
     try:
         with engine.connect() as conn:
-            # Проверяем наличие расширения vector
+            # Check for vector extension
             result = conn.execute(text(
                 "SELECT COUNT(*) FROM pg_extension WHERE extname = 'vector'"
             )).scalar()
@@ -241,25 +277,25 @@ def grant_table_access(admin_engine, schema_name, table_name, user_name,
                       grant_select=True, grant_insert=True, 
                       grant_update=True, grant_delete=True):
     """
-    Предоставляет пользователю права доступа к таблице.
-    Должен вызываться только с административным движком.
+    Grants table access permissions to a user.
+    Should only be called with an administrative engine.
     
     Args:
-        admin_engine: SQLAlchemy Engine с правами администратора
-        schema_name (str): Имя схемы
-        table_name (str): Имя таблицы
-        user_name (str): Имя пользователя, которому предоставляются права
-        grant_select (bool): Предоставить право на SELECT
-        grant_insert (bool): Предоставить право на INSERT
-        grant_update (bool): Предоставить право на UPDATE
-        grant_delete (bool): Предоставить право на DELETE
+        admin_engine: SQLAlchemy Engine with administrative privileges
+        schema_name (str): Schema name
+        table_name (str): Table name
+        user_name (str): Username to grant permissions to
+        grant_select (bool): Grant SELECT permission
+        grant_insert (bool): Grant INSERT permission
+        grant_update (bool): Grant UPDATE permission
+        grant_delete (bool): Grant DELETE permission
         
     Returns:
-        bool: True, если права успешно предоставлены
+        bool: True if permissions were granted successfully
     """
-    # Проверяем, что движок имеет права администратора
+    # Check that engine has administrative privileges
     if not is_admin_engine(admin_engine):
-        logger.error("Попытка выдать права с неадминистративным движком")
+        logger.error("Attempt to grant permissions with non-administrative engine")
         return False
     
     try:
@@ -275,19 +311,19 @@ def grant_table_access(admin_engine, schema_name, table_name, user_name,
                 permissions.append("DELETE")
                 
             if not permissions:
-                logger.warning("Не указаны права для предоставления")
+                logger.warning("No permissions specified to grant")
                 return False
                 
             permissions_str = ", ".join(permissions)
             
-            # Выдаем права на таблицу
+            # Grant table permissions
             conn.execute(text(f"""
                 GRANT {permissions_str} ON {schema_name}.{table_name} TO {user_name}
             """))
             conn.commit()
             
-            logger.info(f"Права {permissions_str} на таблицу {schema_name}.{table_name} предоставлены пользователю {user_name}")
+            logger.info(f"Permissions {permissions_str} on table {schema_name}.{table_name} granted to user {user_name}")
             return True
     except SQLAlchemyError as e:
-        logger.error(f"Ошибка при предоставлении прав доступа: {e}")
+        logger.error(f"Error granting access permissions: {e}")
         return False

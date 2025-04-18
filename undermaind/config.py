@@ -99,3 +99,65 @@ def load_config(config_file: Optional[str] = None, env_prefix: str = "UNDERMAIND
 
     # Создание объекта конфигурации
     return Config(**config_values)
+
+
+# Сохраняем глобальный объект конфигурации для кеширования
+_global_config = None
+
+def get_config(config_file: Optional[str] = None, env_prefix: str = "UNDERMAIND_", reload: bool = False) -> Config:
+    """
+    Получает конфигурацию, используя кешированный объект или загружая конфигурацию заново.
+    
+    Args:
+        config_file: Путь к файлу конфигурации (опционально)
+        env_prefix: Префикс для переменных окружения (по умолчанию "UNDERMAIND_")
+        reload: Если True, принудительно перезагружает конфигурацию
+
+    Returns:
+        Config: Объект конфигурации
+    """
+    global _global_config
+    
+    # Определяем путь к корню проекта
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    
+    # Определяем пути к конфигурациям в корне проекта
+    main_config_path = os.path.join(project_root, "family_config.env")
+    test_config_path = os.path.join(project_root, "family_config_test.env")
+    
+    # Проверяем, в каком режиме работаем (тестирование или обычный режим)
+    is_test_environment = os.environ.get("FAMILY_TEST_MODE", "false").lower() in ("true", "yes", "1")
+    
+    # Если принудительно перезагружаем или кэш пуст
+    if reload or _global_config is None:
+        # Определяем, какой файл конфигурации использовать
+        active_config_path = test_config_path if is_test_environment else main_config_path
+        
+        # Если предоставлен пользовательский путь к конфигурации, используем его
+        if config_file:
+            active_config_path = config_file
+        
+        # Проверяем существование файла конфигурации
+        if os.path.exists(active_config_path):
+            # Загружаем переменные окружения из файла
+            import dotenv
+            dotenv.load_dotenv(active_config_path)
+            
+            # Создаем конфигурацию на основе загруженных параметров
+            _global_config = Config(
+                DB_USERNAME=os.environ.get("FAMILY_AMI_USER", "postgres"),
+                DB_PASSWORD=os.environ.get("FAMILY_AMI_PASSWORD", ""),
+                DB_HOST=os.environ.get("FAMILY_DB_HOST", "localhost"),
+                DB_PORT=int(os.environ.get("FAMILY_DB_PORT", "5432")),
+                DB_NAME=os.environ.get("FAMILY_DB_NAME", "family_db"),
+                DB_SCHEMA=os.environ.get("FAMILY_DB_SCHEMA", os.environ.get("FAMILY_AMI_USER", "memory")),
+                DB_ADMIN_USER=os.environ.get("FAMILY_ADMIN_USER", "postgres"),
+                DB_ADMIN_PASSWORD=os.environ.get("FAMILY_ADMIN_PASSWORD", ""),
+                DB_ECHO_SQL=os.environ.get("FAMILY_ENABLE_TRANSACTION_LOGGING", "false").lower() in ("true", "yes", "1"),
+                EMBEDDING_MODEL=os.environ.get("FAMILY_VECTOR_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
+            )
+        else:
+            # Используем стандартную загрузку конфигурации
+            _global_config = load_config(config_file, env_prefix)
+    
+    return _global_config

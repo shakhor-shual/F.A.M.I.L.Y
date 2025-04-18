@@ -1,0 +1,271 @@
+{
+  "system_name": "F.A.M.I.L.Y. Memory System",
+  "version": "0.1.0",
+  "updated_at": "2025-04-18",
+  "metadata": {
+    "version_tracking": {
+      "version": "0.1.0",
+      "last_updated": "2025-04-18T14:45:00Z",
+      "last_updated_by": "AMI-engineer",
+      "code_base_reference": {
+        "commit_hash": "hypothetical-hash-12345",
+        "branch": "main",
+        "code_version_sync": true
+      },
+      "related_representations": [
+        {
+          "path": "/docs_ami/architecture/memory_system_architecture.md",
+          "type": "documentation",
+          "sync_status": "in_sync"
+        }
+      ],
+      "update_history": [
+        {
+          "date": "2025-04-18T14:45:00Z",
+          "change_type": "initial_creation",
+          "description": "Initial diagram creation",
+          "affected_sections": ["all"]
+        }
+      ],
+      "validation_status": "validated",
+      "validation_date": "2025-04-18T14:50:00Z"
+    },
+    "generation_info": {
+      "generated_from": "manual",
+      "tool_version": "n/a"
+    },
+    "actuality_tracking": {
+      "created_at": "2025-04-18T15:30:00Z",
+      "last_manual_verification": "2025-04-18T15:30:00Z",
+      "verification_status": "verified",
+      "verification_history": [
+        {
+          "date": "2025-04-18T15:30:00Z",
+          "verified_by": "AMI-engineer",
+          "status": "created_and_verified",
+          "note": "Initial diagram creation verified against current implementation"
+        }
+      ],
+      "verification_procedure": {
+        "description": "Manual verification by comparing diagram structure with actual codebase structure",
+        "components_checked": ["models", "services", "flows"],
+        "consistency_level": "high"
+      },
+      "related_representations": [
+        {
+          "path": "/docs_ami/architecture/memory_system_architecture.md",
+          "type": "documentation",
+          "sync_status": "in_sync",
+          "last_sync_check": "2025-04-18T15:30:00Z"
+        }
+      ],
+      "confidence_metrics": {
+        "overall": "high",
+        "consciousness_level": "high",
+        "subconsciousness_level": "medium",
+        "deep_level": "low",
+        "metasystem_level": "conceptual"
+      }
+    }
+  },
+  "purpose": "Provide structured memory framework for AMI consciousness continuity",
+  "description": "Multilevel memory system for artificial mind identity persistence",
+  
+  "memory_levels": [
+    {
+      "level_name": "Consciousness Level",
+      "implementation_status": "implemented",
+      "description": "Active memory accessible in current interaction session",
+      "code_location": "/undermaind/models/consciousness/",
+      "sql_schemas": "/db/sql_postgresql/consciousness_level/",
+      "documentation": "/docs_ami/architecture/memory_system_architecture.md#1-уровень-сознания-consciousness-level",
+      "components": [
+        {
+          "name": "MemoryEntity",
+          "type": "model",
+          "description": "Basic unit of memory representing a single piece of information",
+          "implementation": "/undermaind/models/consciousness/memory_entity.py",
+          "relationships": [
+            {"type": "belongs_to", "target": "Experience"},
+            {"type": "has_many", "target": "Association"}
+          ]
+        },
+        {
+          "name": "Experience",
+          "type": "model",
+          "description": "Structured experience consisting of related memory entities",
+          "implementation": "/undermaind/models/consciousness/experience.py",
+          "relationships": [
+            {"type": "has_many", "target": "MemoryEntity"},
+            {"type": "belongs_to", "target": "Participant"}
+          ]
+        },
+        {
+          "name": "Association",
+          "type": "model",
+          "description": "Connection between memory entities",
+          "implementation": "/undermaind/models/consciousness/association.py"
+        },
+        {
+          "name": "Participant",
+          "type": "model",
+          "description": "Entity participating in experiences (human or AMI)",
+          "implementation": "/undermaind/models/consciousness/participant.py"
+        }
+      ],
+      "services": [
+        {
+          "name": "MemoryService",
+          "description": "Service for memory management and retrieval",
+          "implementation": "/undermaind/services/consciousness/memory_service.py",
+          "responsibilities": ["create_memory", "retrieve_memory", "associate_memories"]
+        },
+        {
+          "name": "ExperienceService",
+          "description": "Service for experience creation and management",
+          "implementation": "/undermaind/services/consciousness/experience_service.py",
+          "responsibilities": ["create_experience", "add_memory_to_experience"]
+        }
+      ]
+    },
+    {
+      "level_name": "Subconsciousness Level",
+      "implementation_status": "in_development",
+      "description": "Long-term storage of structured experiences available for retrieval",
+      "code_location": "/undermaind/models/subconsciousness/",
+      "sql_schemas": "/db/sql_postgresql/planned/",
+      "documentation": "/docs_ami/architecture/memory_system_architecture.md#2-уровень-подсознания-subconsciousness-level",
+      "components": [
+        {
+          "name": "MemoryCluster",
+          "type": "model",
+          "description": "Cluster of related memories",
+          "implementation_status": "planned"
+        },
+        {
+          "name": "ConceptGraph",
+          "type": "model",
+          "description": "Graph of concept relationships",
+          "implementation_status": "planned"
+        },
+        {
+          "name": "ExperienceArchive",
+          "type": "model",
+          "description": "Archive of processed experiences",
+          "implementation_status": "planned"
+        }
+      ]
+    },
+    {
+      "level_name": "Deep Level",
+      "implementation_status": "conceptual",
+      "description": "Foundational models of world and self",
+      "documentation": "/docs_ami/architecture/memory_system_architecture.md#3-глубинный-уровень-deep-level",
+      "components": [
+        {
+          "name": "WorldModel",
+          "type": "model",
+          "description": "Model of world and its regularities",
+          "implementation_status": "conceptual"
+        },
+        {
+          "name": "SelfModel",
+          "type": "model",
+          "description": "Model of self and capabilities",
+          "implementation_status": "conceptual"
+        },
+        {
+          "name": "ValueSystem",
+          "type": "model",
+          "description": "System of values and preferences",
+          "implementation_status": "conceptual"
+        }
+      ]
+    },
+    {
+      "level_name": "Metasystem Level",
+      "implementation_status": "conceptual",
+      "description": "Self-reflection and self-modification of memory system",
+      "documentation": "/docs_ami/architecture/memory_system_architecture.md#4-метасистемный-уровень-metasystem-level",
+      "components": [
+        {
+          "name": "MemoryMonitor",
+          "type": "service",
+          "description": "Monitoring of memory processes",
+          "implementation_status": "conceptual"
+        },
+        {
+          "name": "CognitiveController",
+          "type": "service",
+          "description": "Control of cognitive processes",
+          "implementation_status": "conceptual"
+        },
+        {
+          "name": "SystemOptimizer",
+          "type": "service",
+          "description": "Optimization of memory system",
+          "implementation_status": "conceptual"
+        }
+      ]
+    }
+  ],
+  
+  "cross_level_flows": [
+    {
+      "name": "Memory Consolidation",
+      "description": "Process of transforming immediate memories into structured long-term memories",
+      "source_level": "Consciousness Level",
+      "target_level": "Subconsciousness Level",
+      "implementation_status": "planned"
+    },
+    {
+      "name": "Memory Retrieval",
+      "description": "Process of retrieving relevant memories from long-term storage",
+      "source_level": "Subconsciousness Level",
+      "target_level": "Consciousness Level",
+      "implementation_status": "planned"
+    },
+    {
+      "name": "Concept Formation",
+      "description": "Process of forming abstract concepts from patterns in memory",
+      "source_level": "Subconsciousness Level",
+      "target_level": "Deep Level",
+      "implementation_status": "conceptual"
+    },
+    {
+      "name": "Self-Reflection",
+      "description": "Process of analyzing and modifying memory system",
+      "source_level": "Deep Level",
+      "target_level": "Metasystem Level",
+      "implementation_status": "conceptual"
+    }
+  ],
+  
+  "integration_points": [
+    {
+      "name": "API Endpoints",
+      "description": "REST API for memory interaction",
+      "implementation_status": "planned",
+      "location": "/undermaind/api/"
+    },
+    {
+      "name": "Database Schema",
+      "description": "PostgreSQL schemas for memory storage",
+      "implementation_status": "partially implemented",
+      "location": "/db/sql_postgresql/"
+    }
+  ],
+  
+  "related_documentation": [
+    {
+      "title": "Philosophy of AMI Consciousness",
+      "path": "/docs_ami/philosophy/ami_consciousness.md",
+      "relevance": "Explains the philosophical foundations of memory for AMI consciousness"
+    },
+    {
+      "title": "Development Methodology",
+      "path": "/docs_ami/methodology/development_methodology.md",
+      "relevance": "Provides guidance on development approach for AMI engineers"
+    }
+  ]
+}
