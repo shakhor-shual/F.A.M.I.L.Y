@@ -14,9 +14,9 @@ logging.basicConfig(level=logging.INFO,
                     stream=sys.stdout)
 logger = logging.getLogger('test_db_init')
 
-# Загружаем параметры из test_config.env
+# Загружаем параметры из family_config_test.env
 import dotenv
-test_config_path = os.path.join(os.path.dirname(__file__), 'undermaind', 'tests', 'test_config.env')
+test_config_path = os.path.join(os.path.dirname(__file__), 'family_config_test.env')
 dotenv.load_dotenv(test_config_path)
 
 def main():
@@ -27,8 +27,8 @@ def main():
     db_name = os.environ.get("FAMILY_DB_NAME", "family_db")
     admin_user = os.environ.get("FAMILY_ADMIN_USER", "family_admin")
     # Явно задаем пароль администратора, так как символ # может восприниматься как комментарий
-    admin_password = "Cold68#Fire"
-    ami_name = os.environ.get("FAMILY_AMI_SCHEMA", "ami_test_user")
+    admin_password = os.environ.get("FAMILY_ADMIN_PASSWORD", "Cold68#Fire")
+    ami_name = os.environ.get("FAMILY_AMI_USER", "ami_test_user")
     ami_password = os.environ.get("FAMILY_AMI_PASSWORD", "ami_secure_password")
     
     logger.info(f"Параметры подключения: host={db_host}, port={db_port}, db={db_name}, admin={admin_user}, ami={ami_name}")
@@ -82,9 +82,24 @@ def main():
     conn = db_initializer._get_database_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute(f"SELECT table_name FROM information_schema.tables WHERE table_schema = 'ami_{ami_name}'")
-        tables = [row[0] for row in cursor.fetchall()]
-        logger.info(f"Созданные таблицы в схеме ami_{ami_name}: {tables}")
+        # Проверяем обе возможные схемы: с префиксом и без
+        schemas_to_check = [ami_name, f"ami_{ami_name}"]
+        tables_found = False
+        
+        for schema in schemas_to_check:
+            logger.info(f"Проверяем схему {schema}...")
+            cursor.execute(f"SELECT table_name FROM information_schema.tables WHERE table_schema = %s", (schema,))
+            tables = [row[0] for row in cursor.fetchall()]
+            if tables:
+                logger.info(f"Созданные таблицы в схеме {schema}: {tables}")
+                tables_found = True
+        
+        if not tables_found:
+            # Если таблицы не найдены, выводим список всех доступных схем
+            cursor.execute("SELECT schema_name FROM information_schema.schemata WHERE schema_name NOT LIKE 'pg_%' AND schema_name != 'information_schema'")
+            schemas = [row[0] for row in cursor.fetchall()]
+            logger.info(f"Доступные схемы в базе данных: {schemas}")
+            logger.warning("Таблицы АМИ не найдены ни в одной из проверенных схем")
     except Exception as e:
         logger.error(f"Ошибка при проверке таблиц: {e}")
     finally:

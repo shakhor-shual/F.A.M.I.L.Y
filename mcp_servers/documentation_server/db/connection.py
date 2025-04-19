@@ -248,7 +248,79 @@ async def setup_database() -> None:
             notes TEXT
         );
         """)
-        
+
+        # Создаем таблицу для категорий заметок
+        await conn.execute("""
+        CREATE TABLE IF NOT EXISTS ami_documentation.note_categories (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(100) NOT NULL UNIQUE,
+            description TEXT,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+        """)
+
+        # Создаем таблицу для заметок
+        await conn.execute("""
+        CREATE TABLE IF NOT EXISTS ami_documentation.notes (
+            id SERIAL PRIMARY KEY,
+            title VARCHAR(200) NOT NULL,
+            content TEXT NOT NULL,
+            category_id INTEGER REFERENCES ami_documentation.note_categories(id),
+            status VARCHAR(50) DEFAULT 'active',
+            priority INTEGER DEFAULT 0,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            completed_at TIMESTAMP WITH TIME ZONE,
+            session_id UUID,
+            parent_note_id INTEGER REFERENCES ami_documentation.notes(id),
+            context JSONB
+        );
+        """)
+
+        # Создаем таблицу для тегов
+        await conn.execute("""
+        CREATE TABLE IF NOT EXISTS ami_documentation.tags (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(50) NOT NULL UNIQUE,
+            description TEXT,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+        """)
+
+        # Создаем таблицу для связей заметок с тегами
+        await conn.execute("""
+        CREATE TABLE IF NOT EXISTS ami_documentation.note_tags (
+            note_id INTEGER REFERENCES ami_documentation.notes(id) ON DELETE CASCADE,
+            tag_id INTEGER REFERENCES ami_documentation.tags(id) ON DELETE CASCADE,
+            PRIMARY KEY (note_id, tag_id)
+        );
+        """)
+
+        # Создаем таблицу для связей между заметками
+        await conn.execute("""
+        CREATE TABLE IF NOT EXISTS ami_documentation.note_links (
+            source_note_id INTEGER REFERENCES ami_documentation.notes(id) ON DELETE CASCADE,
+            target_note_id INTEGER REFERENCES ami_documentation.notes(id) ON DELETE CASCADE,
+            link_type VARCHAR(50) NOT NULL,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (source_note_id, target_note_id, link_type)
+        );
+        """)
+
+        # Добавляем основные категории заметок
+        await conn.execute("""
+        INSERT INTO ami_documentation.note_categories (name, description) 
+        VALUES 
+            ('development', 'Заметки о процессе разработки'),
+            ('debugging', 'Отладочные заметки и решения проблем'),
+            ('architecture', 'Архитектурные решения и паттерны'),
+            ('testing', 'Тестовые сценарии и результаты'),
+            ('deployment', 'Процесс развертывания и конфигурации'),
+            ('research', 'Результаты исследований и анализа')
+        ON CONFLICT (name) DO NOTHING;
+        """)
+
         logger.info("Структура базы данных успешно настроена")
 
 async def close_db_pool():

@@ -432,23 +432,50 @@ class SchemaManager:
             return False
 
 
+# Глобальный экземпляр SchemaManager (синглтон)
+_global_schema_manager = None
+
 def get_schema_manager(config: Optional[Config] = None, 
+                      admin_credentials: Optional[Tuple[str, str]] = None,
                       admin_user: Optional[str] = None,
                       admin_password: Optional[str] = None) -> SchemaManager:
     """
-    Получение менеджера схем.
+    Получение глобального экземпляра SchemaManager (синглтон).
+    
+    Этот метод обеспечивает единый доступ к менеджеру схем в рамках всего приложения,
+    что соответствует принципу "прорастающего дерева" и предотвращает дублирование
+    функциональности с модулем engine.
     
     Args:
         config (Config, optional): Конфигурация базы данных
+        admin_credentials (Tuple[str, str], optional): Пара (admin_user, admin_password)
         admin_user (str, optional): Имя пользователя с правами администратора
         admin_password (str, optional): Пароль пользователя с правами администратора
         
     Returns:
         SchemaManager: Настроенный менеджер схем
-    """
-    manager = SchemaManager(config)
-    
-    if admin_user and admin_password:
-        manager.set_admin_credentials(admin_user, admin_password)
         
-    return manager
+    Philosophy note:
+        Синглтон для SchemaManager отражает концепцию единства "корневой памяти" АМИ,
+        описанную в /docs_ami/architecture/memory_system_architecture.md
+    """
+    global _global_schema_manager
+    
+    if _global_schema_manager is None:
+        _global_schema_manager = SchemaManager(config)
+        
+        # Устанавливаем учетные данные, если они предоставлены
+        if admin_credentials:
+            admin_user, admin_password = admin_credentials
+            _global_schema_manager.set_admin_credentials(admin_user, admin_password)
+        elif admin_user and admin_password:
+            _global_schema_manager.set_admin_credentials(admin_user, admin_password)
+    
+    # Если новые учетные данные отличаются от ранее установленных, обновляем их
+    if (admin_credentials or (admin_user and admin_password)) and _global_schema_manager._admin_credentials is None:
+        if admin_credentials:
+            _global_schema_manager.set_admin_credentials(*admin_credentials)
+        elif admin_user and admin_password:
+            _global_schema_manager.set_admin_credentials(admin_user, admin_password)
+    
+    return _global_schema_manager

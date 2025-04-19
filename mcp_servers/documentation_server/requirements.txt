@@ -4,7 +4,7 @@
 # Веб-фреймворк
 fastapi>=0.95.0,<1.0.0
 uvicorn>=0.21.0,<1.0.0
-pydantic>=1.10.7,<2.0.0
+pydantic>=2.7.2,<3.0.0
 
 # Асинхронная работа с PostgreSQL
 asyncpg>=0.27.0,<1.0.0
@@ -28,3 +28,13 @@ httpx>=0.24.0,<1.0.0
 
 # Типизация
 typing-extensions>=4.5.0,<5.0.0
+
+# Новые зависимости для MCP
+aiohttp>=3.8.0
+aiohttp-cors>=0.7.0
+aiosqlite>=0.17.0
+python-dotenv>=0.19.0
+uvicorn>=0.15.0
+websockets>=10.0
+pydantic>=1.8.0
+python-multipart>=0.0.5

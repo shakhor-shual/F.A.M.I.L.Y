@@ -80,7 +80,8 @@ class DocumentationServer:
         
         # Основные маршруты сервера
         app.router.add_get('/', self.handle_root)
-        app.router.add_get('/health', self.handle_health_check)
+        app.        app.router.add_get('/health', self.handle_health_check)
+router.add_get('/health', self.handle_health_check)
         
         # Маршруты для работы с диаграммами
         await DiagramHandler.setup_routes(app)
@@ -88,7 +89,8 @@ class DocumentationServer:
         # Маршруты для работы с MCP
         await MCPHandler.setup_routes(app)
         
-        # Статические файлы для веб-интерфейса
+        # С        app.router.add_route('*', '/v1/lsp', lsp_handler.handle_lsp)
+татические файлы для веб-интерфейса
         app.router.add_static('/static/', path='static', name='static')
     
     def _setup_signal_handlers(self):
@@ -176,7 +178,24 @@ class DocumentationServer:
     
     def run(self):
         """Запускает сервер"""
-        web.run_app(self.app, host=self.host, port=self.port, access_log=logger)
+      async def handle_sse_options(self, request):
+        """
+        Обрабатывает OPTIONS запросы для SSE эндпоинта.
+        
+        Returns:
+            Response с CORS заголовками
+        """
+        return web.Response(
+            status=200,
+            headers={
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type',
+                'Access-Control-Max-Age': '86400',  # 24 часа
+            }
+        )
+    
+      web.run_app(self.app, host=self.host, port=self.port, access_log=logger)
 
 def run_server():
     """Функция для запуска сервера из командной строки"""

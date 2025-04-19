@@ -1,246 +1,418 @@
 """
-Общие фикстуры для тестирования системы памяти АМИ.
+Общие фикстуры для тестов F.A.M.I.L.Y.
 
-ВНИМАНИЕ: В проекте F.A.M.I.L.Y. используется стандартизированный подход к тестированию.
-Перед созданием новых фикстур ОБЯЗАТЕЛЬНО ознакомьтесь с существующими фикстурами
-в этом файле и используйте их.
-
-Структура фикстур:
-1. db_config - базовая конфигурация тестовой базы данных
-2. setup_base_model_schema - настройка схемы для моделей SQLAlchemy
-3. test_db_initializer - инициализатор базы данных для тестов
-4. test_ami_initializer - инициализатор экземпляра АМИ для тестов
-5. test_engine_postgres - движок PostgreSQL для интеграционных тестов
-6. db_session_postgres - сессия PostgreSQL для тестов функционального уровня
-
-Для написания новых тестов:
-- Для unit-тестов без БД: не требуются особые фикстуры
-- Для тестов с БД: используйте db_session_postgres
-- Для интеграционных тестов: пометьте тест маркером @pytest.mark.integration
+Этот модуль содержит фикстуры, используемые во всех тестах проекта.
 """
 
 import os
+import logging
 import pytest
-import tempfile
+import uuid
 import dotenv
+from pathlib import Path
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, clear_mappers
+from sqlalchemy.exc import SQLAlchemyError
 
-from undermaind.core.base import Base, create_base
+from undermaind.core.base import Base
 from undermaind.models import setup_relationships
-from undermaind.utils.db_init import DatabaseInitializer
+from undermaind.core.engine_manager import get_engine_manager
 from undermaind.utils.ami_init import AmiInitializer
 
+# Если среда разработки поддерживает переменные окружения .env
+# загружаем их из корневой директории проекта
+project_root = Path(__file__).parent.parent.parent
+env_path = project_root / 'family_config_test.env'
+if env_path.exists():
+    dotenv.load_dotenv(env_path)
+else:
+    # Если тестовый env-файл не найден, используем стандартный
+    env_path = project_root / 'family_config.env'
+    if env_path.exists():
+        dotenv.load_dotenv(env_path)
 
-# Загружаем тестовую конфигурацию из корня проекта
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
-test_config_path = os.path.join(project_root, "family_config_test.env")
-dotenv.load_dotenv(test_config_path)
+# Configure logging
+logger = logging.getLogger(__name__)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
 
-# Устанавливаем флаг тестового режима
+# Set test mode flag
 os.environ["FAMILY_TEST_MODE"] = "true"
+
+# Check if required environment variables are set
+required_vars = ["FAMILY_DB_NAME", "FAMILY_AMI_USER", "FAMILY_AMI_PASSWORD", 
+                "FAMILY_ADMIN_USER", "FAMILY_ADMIN_PASSWORD"]
+missing_vars = [var for var in required_vars if not os.environ.get(var)]
+if missing_vars:
+    logger.warning(f"Missing required environment variables: {', '.join(missing_vars)}")
+    logger.warning("Tests that depend on database connections may fail.")
 
 
 @pytest.fixture(scope="session")
 def db_config():
     """
-    Базовая конфигурация тестовой базы данных.
+    Фикстура для доступа к конфигурации базы данных.
     
-    Эта фикстура является основой для всех тестов, взаимодействующих с базой данных.
-    Она загружает настройки из тестовой конфигурации и предоставляет их в удобном формате.
+    Возвращает словарь с параметрами подключения к БД из переменных окружения.
     
     Returns:
-        dict: Словарь с параметрами подключения к тестовой базе данных
+        dict: Словарь с параметрами подключения к БД
     """
-    ami_user = os.environ.get("FAMILY_AMI_USER", "ami_test_user")
-    return {
-        "DB_NAME": os.environ.get("FAMILY_DB_NAME", "family_db"),
-        "DB_USER": ami_user,
-        "DB_SCHEMA": ami_user,  # Используем имя пользователя АМИ как имя схемы
-        "DB_PASSWORD": os.environ.get("FAMILY_AMI_PASSWORD", "ami_secure_password"),
-        "DB_HOST": os.environ.get("FAMILY_DB_HOST", "localhost"),
-        "DB_PORT": os.environ.get("FAMILY_DB_PORT", "5432"),
-        "DB_ADMIN_USER": os.environ.get("FAMILY_ADMIN_USER", "family_admin"),
-        "DB_ADMIN_PASSWORD": os.environ.get("FAMILY_ADMIN_PASSWORD", "Cold68#Fire"),
+    config = {
+        'DB_HOST': os.environ.get('FAMILY_DB_HOST', 'localhost'),
+        'DB_PORT': os.environ.get('FAMILY_DB_PORT', '5432'),
+        'DB_NAME': os.environ.get('FAMILY_DB_NAME', 'family_db'),
+        'DB_ADMIN_USER': os.environ.get('FAMILY_ADMIN_USER', 'family_admin'),
+        'DB_ADMIN_PASSWORD': os.environ.get('FAMILY_ADMIN_PASSWORD', ''),
     }
+    return config
 
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_base_model_schema(db_config):
     """
-    Настраивает базовую модель с правильной схемой для тестов.
+    Sets up the base model with the correct schema for tests.
     
-    Автоматически применяется ко всем тестам в сессии через autouse=True.
-    Устанавливает схему из db_config для всех моделей SQLAlchemy.
+    Automatically applied to all tests in the session via autouse=True.
+    Sets the schema from db_config for all SQLAlchemy models.
     
     Args:
-        db_config: Конфигурация базы данных (из фикстуры db_config)
+        db_config: Database configuration (from db_config fixture)
     """
-    # Сохраняем оригинальные метаданные
+    # Save original metadata
     original_metadata = Base.metadata
     original_schema = original_metadata.schema
     
-    # Устанавливаем корректную схему для тестов
+    # Set the correct schema for tests
     Base.metadata.schema = db_config["DB_SCHEMA"]
     
     yield
     
-    # Восстанавливаем оригинальную схему после тестов
+    # Restore original schema after tests
     Base.metadata.schema = original_schema
 
 
-@pytest.fixture(scope="session")
-def test_db_initializer(db_config):
-    """
-    Создает инициализатор базы данных для тестов.
-    
-    Предоставляет объект DatabaseInitializer для управления тестовой БД,
-    но не создает саму базу данных. Это делает test_engine_postgres.
-    
-    Args:
-        db_config: Конфигурация базы данных (из фикстуры db_config)
-    
-    Returns:
-        DatabaseInitializer: Инициализатор базы данных для тестов
-    """
-    return DatabaseInitializer(
-        db_host=db_config["DB_HOST"],
-        db_port=int(db_config["DB_PORT"]),
-        db_name=db_config["DB_NAME"],
-        admin_user=db_config["DB_ADMIN_USER"],
-        admin_password=db_config["DB_ADMIN_PASSWORD"]
-    )
-
-
-@pytest.fixture(scope="session")
-def test_ami_initializer(test_db_initializer, db_config):
-    """
-    Создает инициализатор АМИ для тестов.
-    
-    Предоставляет объект AmiInitializer для управления тестовым экземпляром АМИ,
-    но не создает сам экземпляр. Это делает test_engine_postgres.
-    
-    Args:
-        test_db_initializer: Инициализатор БД (из фикстуры test_db_initializer)
-        db_config: Конфигурация БД (из фикстуры db_config)
-    
-    Returns:
-        AmiInitializer: Инициализатор АМИ для тестов
-    """
-    return AmiInitializer(
-        ami_name=db_config["DB_SCHEMA"],
-        ami_password=db_config["DB_PASSWORD"],
-        db_host=test_db_initializer.db_host,
-        db_port=test_db_initializer.db_port,
-        db_name=test_db_initializer.db_name,
-        admin_user=test_db_initializer.admin_user,
-        admin_password=test_db_initializer.admin_password
-    )
-
-
 @pytest.fixture(scope="module")
-def test_engine_postgres(db_config, test_db_initializer, test_ami_initializer):
+def ami_engine(db_config, request):
     """
-    Создает PostgreSQL-движок для интеграционных тестов.
+    Универсальная фикстура для работы с памятью АМИ через SQLAlchemy Engine.
     
-    Эта фикстура:
-    1. Инициализирует тестовую базу данных (при необходимости пересоздает её)
-    2. Создает тестовый экземпляр АМИ (с собственной схемой)
-    3. Настраивает соединение с базой данных
-    4. После завершения тестов удаляет тестовый экземпляр АМИ
+    Эта фикстура обеспечивает полную интеграцию с принципом "непрерывности бытия" АМИ:
+    1. Автоматически создает базу данных при необходимости
+    2. Автоматически создает АМИ и схему если они не существуют
+    3. Настраивает все необходимые параметры подключения
+    4. Очищает тестовые данные после выполнения тестов
     
-    Имеет scope="module", чтобы каждый модуль тестов получал свежую БД,
-    но тесты внутри модуля использовали одну и ту же БД для ускорения.
+    Параметры можно настроить через маркер 'ami_params':
+    @pytest.mark.parametrize('ami_params', [{'unique': True}], indirect=True)
     
     Args:
-        db_config: Конфигурация БД (из фикстуры db_config)
-        test_db_initializer: Инициализатор БД (из фикстуры test_db_initializer)
-        test_ami_initializer: Инициализатор АМИ (из фикстуры test_ami_initializer)
-    
+        db_config: Configuration dictionary
+        request: pytest request object for accessing markers
+        
     Returns:
-        Engine: SQLAlchemy движок для работы с PostgreSQL
+        Engine: SQLAlchemy engine for database operations
+        
+    Note:
+        По умолчанию использует АМИ из конфигурации, но можно запросить
+        уникальный АМИ для тестов через маркер ami_params с параметром unique=True
     """
-    # Инициализируем базу данных, при необходимости пересоздавая её
-    test_db_initializer.initialize_database(recreate=True)
+    # Проверяем наличие маркера с параметрами
+    params = {}
+    if hasattr(request, 'param'):
+        params = request.param
+        
+    # Если запрошено уникальное АМИ для тестов, генерируем уникальное имя
+    if params.get('unique'):
+        ami_name = f"test_ami_{uuid.uuid4().hex[:8]}"
+        ami_password = f"test_pwd_{uuid.uuid4().hex[:8]}"
+    else:
+        # Используем АМИ из тестовой конфигурации
+        ami_name = db_config["DB_SCHEMA"]
+        ami_password = db_config["DB_PASSWORD"]
     
-    # Пересоздаем тестовый экземпляр АМИ
-    test_ami_initializer.recreate_ami(force=True)
+    # Получаем движок управления памятью
+    engine_manager = get_engine_manager()
     
-    # Используем схему напрямую из конфигурации
-    ami_schema = db_config['DB_SCHEMA']
-    
-    # Создаем соединение с базой данных с указанием схемы АМИ
-    connection_string = (
-        f"postgresql://{db_config['DB_USER']}:{db_config['DB_PASSWORD']}@"
-        f"{db_config['DB_HOST']}:{db_config['DB_PORT']}/"
-        f"{db_config['DB_NAME']}"
+    # Получаем движок для работы с АМИ (создаст АМИ если необходимо)
+    engine = engine_manager.get_engine(
+        ami_name=ami_name,
+        ami_password=ami_password,
+        auto_create=True  # Автоматически создает АМИ при необходимости
     )
-    engine = create_engine(connection_string)
     
-    # Устанавливаем путь поиска
-    with engine.connect() as conn:
-        conn.execute(text(f"SET search_path TO {ami_schema}, public"))
-    
-    # Устанавливаем связи между моделями
+    # Настраиваем модели
     setup_relationships()
+    
+    # Запоминаем в контексте имя АМИ для дальнейшего использования
+    request.node.ami_name = ami_name
+    request.node.ami_password = ami_password
+    
+    # Логируем информацию о созданном АМИ
+    if params.get('unique'):
+        logger.info(f"Created temporary unique AMI: {ami_name}")
     
     yield engine
     
-    # Очистка: удаляем тестовый экземпляр АМИ
-    test_ami_initializer.drop_ami(force=True)
+    # Очистка: если использовался уникальный АМИ, удаляем его
+    if params.get('unique'):
+        try:
+            ami_initializer = AmiInitializer(
+                ami_name=ami_name,
+                ami_password=ami_password,
+                db_host=db_config["DB_HOST"],
+                db_port=int(db_config["DB_PORT"]),
+                db_name=db_config["DB_NAME"],
+                admin_user=db_config["DB_ADMIN_USER"],
+                admin_password=db_config["DB_ADMIN_PASSWORD"]
+            )
+            ami_initializer.drop_ami(force=True)
+            logger.info(f"Removed temporary AMI: {ami_name}")
+        except Exception as e:
+            logger.error(f"Error removing temporary AMI {ami_name}: {e}")
 
 
 @pytest.fixture(scope="function")
-def db_session_postgres(test_engine_postgres, db_config):
+def db_session(ami_engine):
     """
-    Создает сессию для работы с тестовой базой данных PostgreSQL.
+    Creates a session for working with the PostgreSQL test database.
     
-    ОСНОВНАЯ ФИКСТУРА ДЛЯ ТЕСТОВ С БАЗОЙ ДАННЫХ.
-    Используйте эту фикстуру для всех тестов, которым требуется 
-    взаимодействие с базой данных.
+    MAIN FIXTURE FOR DATABASE TESTS.
+    Use this fixture for all tests that require 
+    interaction with the database.
     
-    Каждый тест получает чистую изолированную сессию. Изменения,
-    сделанные в одном тесте, не влияют на другие тесты.
-    
-    Пример использования:
-    ```python
-    def test_something(db_session_postgres):
-        # db_session_postgres - это сессия SQLAlchemy для работы с БД
-        entity = Entity(name="test")
-        db_session_postgres.add(entity)
-        db_session_postgres.commit()
-        
-        # Проверка результата
-        assert db_session_postgres.query(Entity).filter_by(name="test").first() is not None
-    ```
+    Each test gets a clean isolated session. Changes
+    made in one test do not affect other tests.
     
     Args:
-        test_engine_postgres: Движок PostgreSQL (из фикстуры test_engine_postgres)
-        db_config: Конфигурация базы данных (из фикстуры db_config)
+        ami_engine: SQLAlchemy engine for database connection
     
     Returns:
-        Session: Сессия SQLAlchemy для работы с PostgreSQL
+        Session: SQLAlchemy session for working with PostgreSQL
     """
-    Session = sessionmaker(bind=test_engine_postgres)
+    Session = sessionmaker(bind=ami_engine)
     session = Session()
     
-    # Используем схему напрямую из конфигурации
-    ami_schema = db_config['DB_SCHEMA']
-    session.execute(text(f"SET search_path TO {ami_schema}, public"))
+    try:
+        yield session
+    except SQLAlchemyError as e:
+        logger.error(f"Database session error: {e}")
+        session.rollback()
+        raise
+    finally:
+        try:
+            session.rollback()  # Roll back any uncommitted changes
+            session.close()
+        except Exception as e:
+            logger.error(f"Error during session cleanup: {e}")
+
+
+@pytest.fixture(scope="module")
+def admin_engine(db_config):
+    """
+    Creates a PostgreSQL engine with administrator privileges for schema and table management.
     
-    yield session
+    This fixture provides a SQLAlchemy engine with administrative privileges,
+    which is necessary for creating tables, schemas, and managing access rights.
+    Use this fixture for tests that need to create or modify database structure.
     
-    # Откатываем незавершенные транзакции и закрываем сессию
-    session.rollback()
-    session.close()
+    Args:
+        db_config: Database configuration (from db_config fixture)
+    
+    Returns:
+        Engine: SQLAlchemy engine with administrator privileges
+    """
+    # Create database connection as administrator
+    connection_string = (
+        f"postgresql://{db_config['DB_ADMIN_USER']}:{db_config['DB_ADMIN_PASSWORD']}@"
+        f"{db_config['DB_HOST']}:{db_config['DB_PORT']}/"
+        f"{db_config['DB_NAME']}"
+    )
+    
+    engine = create_engine(
+        connection_string,
+        isolation_level="AUTOCOMMIT",  # Автоматический коммит для предотвращения блокировок
+        pool_size=5,
+        max_overflow=10,
+        pool_pre_ping=True,
+        connect_args={"connect_timeout": 10}
+    )
+    
+    logger.info(f"Created administrative engine with autocommit mode")
+    
+    yield engine
+
+
+@pytest.fixture(scope="module")
+def vector_test_env(admin_engine, db_config, request):
+    """
+    Prepares an environment for testing vector operations with pgvector extension.
+    
+    This fixture:
+    1. Checks if pgvector extension is available
+    2. Creates it if not present and if has admin privileges
+    3. Provides necessary helper functions for vector tests
+    
+    Args:
+        admin_engine: Admin PostgreSQL engine (from admin_engine fixture)
+        db_config: Database configuration (from db_config fixture)
+        request: pytest request object for accessing the ami_name
+    
+    Returns:
+        dict: Helper functions and metadata for vector testing
+    """
+    # Получаем имя АМИ из контекста
+    if hasattr(request.node, 'ami_name'):
+        ami_schema = request.node.ami_name
+    else:
+        ami_schema = db_config['DB_SCHEMA']
+        
+    has_pgvector = False
+    
+    # Check if pgvector extension is available
+    try:
+        with admin_engine.connect() as conn:
+            result = conn.execute(text(
+                "SELECT COUNT(*) FROM pg_extension WHERE extname = 'vector'"
+            )).scalar()
+            
+            has_pgvector = result > 0
+            
+            # Try to create extension if not present
+            if not has_pgvector:
+                try:
+                    conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+                    has_pgvector = True
+                    logger.info("Successfully installed pgvector extension")
+                except SQLAlchemyError as e:
+                    logger.warning(f"Could not create pgvector extension: {e}")
+    except SQLAlchemyError as e:
+        logger.warning(f"Could not check for pgvector extension: {e}")
+    
+    # Create test environment
+    def create_vector_table(table_name='vector_test_table', vector_dim=3):
+        """Create a table for vector testing"""
+        if not has_pgvector:
+            pytest.skip("pgvector extension not available")
+        
+        try:
+            with admin_engine.connect() as conn:
+                conn.execute(text(f"""
+                    CREATE TABLE IF NOT EXISTS {ami_schema}.{table_name} (
+                        id SERIAL PRIMARY KEY,
+                        embedding VECTOR({vector_dim}),
+                        metadata JSONB
+                    )
+                """))
+            return True
+        except SQLAlchemyError as e:
+            logger.error(f"Failed to create vector test table: {e}")
+            return False
+    
+    def drop_vector_table(table_name='vector_test_table'):
+        """Drop a vector test table"""
+        try:
+            with admin_engine.connect() as conn:
+                conn.execute(text(f"DROP TABLE IF EXISTS {ami_schema}.{table_name}"))
+            return True
+        except SQLAlchemyError as e:
+            logger.error(f"Failed to drop vector test table: {e}")
+            return False
+    
+    # Return the test environment
+    env = {
+        'has_pgvector': has_pgvector,
+        'create_vector_table': create_vector_table,
+        'drop_vector_table': drop_vector_table,
+        'ami_schema': ami_schema,
+    }
+    
+    yield env
+    
+    # Cleanup any test tables that might have been created
+    drop_vector_table('vector_test_table')
+
+
+@pytest.fixture(scope="function")
+def ami_params(request):
+    """
+    Фикстура для генерации параметров АМИ.
+    
+    Эта фикстура может принимать параметры для настройки создания АМИ:
+    * unique (bool): Создать уникальное имя АМИ (по умолчанию False)
+    * ami_name (str): Использовать указанное имя АМИ
+    * ami_password (str): Использовать указанный пароль АМИ
+    
+    Args:
+        request: Объект запроса pytest с параметрами
+    
+    Returns:
+        dict: Словарь с параметрами АМИ (имя и пароль)
+    """
+    # По умолчанию создаем тестовое АМИ с фиксированным именем
+    params = {
+        'ami_name': 'test_ami',
+        'ami_password': 'test_password'
+    }
+    
+    # Если запрошено уникальное имя или параметр direct=True
+    marker = request.node.get_closest_marker('ami_params')
+    if marker:
+        if marker.kwargs.get('unique') or getattr(request, 'param', {}).get('unique'):
+            unique_id = uuid.uuid4().hex[:8]
+            params['ami_name'] = f"test_ami_{unique_id}"
+            params['ami_password'] = f"pwd_{unique_id}"
+    
+    # Если в параметрах есть конкретные значения, используем их
+    if hasattr(request, 'param'):
+        if request.param.get('ami_name'):
+            params['ami_name'] = request.param['ami_name']
+        if request.param.get('ami_password'):
+            params['ami_password'] = request.param['ami_password']
+    
+    # Сохраняем значения в контексте запроса для использования в других фикстурах
+    request.node.ami_name = params['ami_name']
+    request.node.ami_password = params['ami_password']
+    
+    return params
+
+
+@pytest.fixture(scope="function")
+def temp_db_path(tmp_path):
+    """
+    Создает временную директорию для тестовых файлов БД.
+    
+    Args:
+        tmp_path: Временная директория pytest
+    
+    Returns:
+        Path: Путь к временной директории для файлов БД
+    """
+    db_path = tmp_path / "db"
+    db_path.mkdir()
+    return db_path
 
 
 def pytest_configure(config):
     """
-    Регистрация пользовательских маркеров pytest.
+    Register custom pytest markers.
     
-    Маркеры используются для категоризации тестов и выборочного запуска.
+    Markers are used for categorizing tests and selective running.
     """
     config.addinivalue_line(
-        "markers", "integration: маркер для интеграционных тестов, требующих PostgreSQL"
+        "markers", "integration: marker for integration tests requiring PostgreSQL"
+    )
+    config.addinivalue_line(
+        "markers", "functional: marker for functional tests"
+    )
+    config.addinivalue_line(
+        "markers", "unit: marker for unit tests"
+    )
+    config.addinivalue_line(
+        "markers", "vector: marker for tests involving vector operations"
+    )
+    config.addinivalue_line(
+        "markers", "ami_params: marker for passing parameters to ami_engine fixture"
     )

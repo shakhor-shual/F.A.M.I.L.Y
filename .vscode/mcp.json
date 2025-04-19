@@ -1,24 +1,14 @@
 {
     "servers": {
-        "fgs": {
-            "command": "uvx",
-            "args": [
-                "mcp-server-git",
-                "--repository", ".",
-                "--allow-write",
-                "--auth-token", "family_dev",
-                "--user-name", "Kassi",
-                "--user-email", "kassi@family.dev"
-            ],
-            "env": {
-                "MCP_GIT_ALLOW_COMMIT": "1",
-                "MCP_GIT_ALLOW_PUSH": "1"
-            }
-        },
+
+       
+
+"doc-server": {
+    "type": "sse",
+    "url": "http://localhost:8080/sse"
+}
         
-        "documentation-server": {
-            "type": "sse",
-            "url": "http://localhost:8080"
-        }
+
+        
     }
 }

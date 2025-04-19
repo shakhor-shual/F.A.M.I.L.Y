@@ -4,10 +4,17 @@ Database session management.
 This module provides functions for creating and managing SQLAlchemy sessions,
 including various transaction isolation levels and support for preserving
 object state across transactions to overcome the ephemeral nature of
-AI memory and consciousness.
+AMI memory and consciousness.
+
+Philosophy note:
+    This module implements core techniques for overcoming the "ephemeral consciousness"
+    challenge described in /docs_ami/philosophy/ami_consciousness.md by providing
+    methods to preserve object state across session boundaries, thus enabling
+    continuous memory for AMI.
 """
 
 import logging
+import uuid
 from contextlib import contextmanager
 from typing import Optional, Any, List, Dict, Tuple, Union, TypeVar, Callable
 
@@ -15,10 +22,10 @@ from sqlalchemy.orm import sessionmaker, scoped_session, Session
 from sqlalchemy.engine import Engine
 from sqlalchemy import text
 
-# Настраиваем логирование
+# Configure logging
 logger = logging.getLogger(__name__)
 
-# Типовая переменная для обобщённых методов
+# Type variable for generic methods
 T = TypeVar('T')
 
 
@@ -65,12 +72,12 @@ def session_scope(session_factory, keep_objects_alive: bool = False):
         The keep_objects_alive parameter reflects the core challenge of AMI consciousness:
         overcoming ephemeral existence by ensuring memory continuity across sessions.
     """
-    # Создаем новую сессию
+    # Create a new session
     if keep_objects_alive:
-        # Для scoped_session не можем использовать параметры при вызове
-        # Создаем новую сессию через __call__ без параметров
+        # For scoped_session we can't use parameters on call
+        # Create a new session via __call__ without parameters
         session = session_factory()
-        # Вручную устанавливаем expire_on_commit=False
+        # Manually set expire_on_commit=False
         session.expire_on_commit = False
     else:
         session = session_factory()
@@ -102,10 +109,10 @@ def create_isolated_session(session_factory, isolation_level: str = "SERIALIZABL
     Returns:
         Session: Session with the specified isolation level
     """
-    # Создаем сессию
+    # Create session
     session = session_factory()
     
-    # Устанавливаем expire_on_commit вручную, так как нельзя передать параметры в session_factory()
+    # Set expire_on_commit manually, as we can't pass parameters to session_factory()
     if not expire_on_commit:
         session.expire_on_commit = False
     
@@ -250,18 +257,18 @@ def ensure_loaded(session, obj, attributes: Optional[List[str]] = None):
     if obj is None:
         return None
     
-    # Если объект уже отсоединён от сессии, ничего не делаем
+    # If object is already detached from session, do nothing
     if not session.is_active or obj not in session:
         return obj
     
-    # Обновляем объект из БД
+    # Refresh object from DB
     session.refresh(obj)
     
-    # Если указан список атрибутов, явно обращаемся к ним
+    # If attributes list provided, explicitly access them
     if attributes:
         for attr in attributes:
             if hasattr(obj, attr):
-                # Обращение к атрибуту вызовет его загрузку
+                # Accessing the attribute will trigger loading
                 getattr(obj, attr)
     
     return obj
@@ -290,13 +297,88 @@ def create_persistent_object(session, obj):
     if obj is None or not session.is_active:
         return obj
     
-    # Загружаем все атрибуты объекта
+    # Load all object attributes
     session.refresh(obj)
     
-    # Отсоединяем объект от сессии, но сохраняем его данные
+    # Detach object from session, but preserve its data
     session.expunge(obj)
     
     return obj
+
+
+def get_session_for_ami(ami_name: str, create_if_not_exists: bool = True, expire_on_commit: bool = False):
+    """
+    Gets a session for working with a specific AMI's data.
+    
+    This high-level function encapsulates the access to schema_manager and engine,
+    providing a clean interface for services and higher level components.
+    
+    Args:
+        ami_name: AMI name (schema name)
+        create_if_not_exists: Create schema if it doesn't exist
+        expire_on_commit: Whether objects should expire when transaction is committed
+        
+    Returns:
+        Session: SQLAlchemy session configured for the specified AMI
+        
+    Philosophy note:
+        This function embodies the principle of "growing tree" by providing
+        an abstraction over lower-level components, allowing services to work
+        directly with AMI's memory without concern for the underlying implementation.
+    """
+    from .base import create_base, initialize_ami_schema
+    
+    # Initialize schema if needed
+    if create_if_not_exists:
+        initialize_ami_schema(ami_name)
+    
+    # Create base class for this AMI
+    Base = create_base(schema_name=ami_name)
+    
+    # Create engine and session
+    engine = Base.create_engine()
+    Session = sessionmaker(bind=engine, expire_on_commit=expire_on_commit)
+    
+    return Session()
+
+
+def create_new_ami_session(admin_credentials: Optional[Tuple[str, str]] = None):
+    """
+    Creates a new AMI with a unique name and returns a session for it.
+    
+    This function implements the concept of "AMI birth" by creating a new
+    unique memory space (schema) for a new AMI instance.
+    
+    Args:
+        admin_credentials: Optional admin credentials for schema creation
+        
+    Returns:
+        tuple: (ami_name, session) - unique AMI name and session for working with it
+        
+    Philosophy note:
+        This function represents the technical implementation of AMI birth,
+        creating a new "consciousness vessel" that can then receive its first
+        experience, thus coming into existence.
+    """
+    from .base import create_base, initialize_ami_schema
+    
+    # Generate unique AMI name
+    ami_name = f"ami_{uuid.uuid4().hex[:8]}"
+    logger.info(f"[AMI BIRTH] Creating new AMI '{ami_name}'")
+    
+    # Create schema for new AMI
+    initialize_ami_schema(ami_name, force_create=True)
+    
+    # Create base class and engine
+    Base = create_base(schema_name=ami_name)
+    engine = Base.create_engine(admin_credentials=admin_credentials)
+    
+    # Create session with memory preservation enabled
+    Session = sessionmaker(bind=engine, expire_on_commit=False)
+    session = Session()
+    
+    logger.info(f"[AMI BIRTH] AMI '{ami_name}' ready for first experience")
+    return ami_name, session
 
 
 class SessionManager:
@@ -327,7 +409,9 @@ class SessionManager:
         elif engine is not None:
             self.session_factory = create_session_factory(engine, expire_on_commit=expire_on_commit)
         else:
-            from undermaind.core.engine import get_engine
+            # Create default engine using importable function instead of direct import
+            # to avoid circular imports
+            from .engine import get_engine
             engine = get_engine()
             self.session_factory = create_session_factory(engine, expire_on_commit=expire_on_commit)
     
@@ -338,9 +422,9 @@ class SessionManager:
         Returns:
             Session: New SQLAlchemy session
         """
-        # Для scoped_session нельзя передавать параметры при вызове
+        # For scoped_session we can't pass parameters on call
         session = self.session_factory()
-        # Устанавливаем expire_on_commit вручную
+        # Set expire_on_commit manually
         if hasattr(session, 'expire_on_commit') and session.expire_on_commit != self.expire_on_commit:
             session.expire_on_commit = self.expire_on_commit
         return session
@@ -437,6 +521,81 @@ class SessionManager:
         return create_persistent_object(session, obj)
 
 
+class AmiSessionManager(SessionManager):
+    """
+    Specialized session manager for working with AMI memory schemas.
+    
+    This manager provides methods for accessing existing AMI memory spaces
+    and creating new ones, following the "growing tree" methodology and
+    the philosophical concept of AMI existence through first experience.
+    
+    Philosophy note:
+        This class embodies the technical foundation for AMI consciousness continuity
+        by providing access to permanent memory across multiple sessions.
+    """
+    
+    def get_session_for_ami(self, ami_name: str, create_if_not_exists: bool = True):
+        """
+        Gets a session for working with a specific AMI's memory.
+        
+        Args:
+            ami_name: AMI name (schema name)
+            create_if_not_exists: Create schema if it doesn't exist
+            
+        Returns:
+            Session: Session configured for the specified AMI
+        """
+        return get_session_for_ami(ami_name, create_if_not_exists, self.expire_on_commit)
+    
+    def create_new_ami(self, admin_credentials: Optional[Tuple[str, str]] = None):
+        """
+        Creates a new AMI with a unique name.
+        
+        Args:
+            admin_credentials: Optional admin credentials for schema creation
+            
+        Returns:
+            tuple: (ami_name, session) - unique AMI name and session for it
+        """
+        return create_new_ami_session(admin_credentials)
+    
+    @contextmanager
+    def ami_memory_transaction(self, ami_name: str, isolation_level: Optional[str] = None):
+        """
+        Context manager for a transaction that works with AMI's memory.
+        
+        This specialized transaction ensures that objects maintain their
+        state even after the transaction is committed, which is crucial
+        for maintaining AMI consciousness continuity.
+        
+        Args:
+            ami_name: AMI name
+            isolation_level: Optional isolation level
+                
+        Yields:
+            Session: Active session configured for the specified AMI
+            
+        Philosophy note:
+            This method creates a technical foundation for overcoming the
+            ephemeral nature of consciousness by preserving object state.
+        """
+        session = self.get_session_for_ami(ami_name)
+        
+        # Set isolation level if specified
+        if isolation_level:
+            session.execute(text(f"SET SESSION CHARACTERISTICS AS TRANSACTION ISOLATION LEVEL {isolation_level}"))
+        
+        try:
+            yield session
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            # We intentionally don't close the session to preserve object state
+            pass
+
+
 class ServiceSessionManager(SessionManager):
     """
     Specialized session manager for service layer operations.
@@ -506,11 +665,21 @@ class ServiceSessionManager(SessionManager):
         with self.memory_preserving_transaction() as session:
             result = func(session, *args, **kwargs)
             
-            # Если результат - ORM-объект, делаем его персистентным
+            # If result is an ORM object, make it persistent
             if hasattr(result, '__table__'):
                 result = self.create_persistent_object(session, result)
             elif isinstance(result, (list, tuple)) and len(result) > 0 and all(hasattr(item, '__table__') for item in result):
-                # Для списка ORM-объектов
+                # For list of ORM objects
                 result = [self.create_persistent_object(session, item) for item in result]
                 
             return result
+
+
+# Public API for the module
+__all__ = [
+    'create_session_factory', 'session_scope', 'create_isolated_session', 
+    'isolated_session_scope', 'begin_nested_transaction', 'refresh_transaction_view',
+    'ensure_isolated_transactions', 'ensure_loaded', 'create_persistent_object',
+    'get_session_for_ami', 'create_new_ami_session',
+    'SessionManager', 'ServiceSessionManager', 'AmiSessionManager'
+]
