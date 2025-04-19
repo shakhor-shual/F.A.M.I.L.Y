@@ -13,11 +13,94 @@ from pathlib import Path
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, clear_mappers
 from sqlalchemy.exc import SQLAlchemyError
+from dotenv import load_dotenv
+from typing import Dict, Any
 
 from undermaind.core.base import Base
 from undermaind.models import setup_relationships
 from undermaind.core.engine_manager import get_engine_manager
 from undermaind.utils.ami_init import AmiInitializer
+
+# Настройка логирования
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler()
+    ]
+)
+
+logger = logging.getLogger('test_context')
+
+def load_test_config() -> Dict[str, Any]:
+    """
+    Загружает конфигурацию для тестов из .env файла.
+    
+    Returns:
+        Dict[str, Any]: Словарь с конфигурацией для тестов
+    """
+    # Загружаем настройки из .env файла
+    env_path = Path(__file__).parent.parent.parent / 'family_config.env'
+    load_dotenv(env_path)
+    
+    # Получаем настройки из переменных окружения
+    config = {
+        'db_host': os.getenv('FAMILY_DB_HOST'),
+        'db_port': int(os.getenv('FAMILY_DB_PORT', '5432')),
+        'db_name': os.getenv('FAMILY_DB_NAME'),
+        'admin_user': os.getenv('FAMILY_ADMIN_USER'),
+        'admin_password': os.getenv('FAMILY_ADMIN_PASSWORD'),
+        'ami_name': os.getenv('FAMILY_AMI_USER'),
+        'ami_password': os.getenv('FAMILY_AMI_PASSWORD')
+    }
+    
+    return config
+
+@pytest.fixture(scope="session")
+def test_config():
+    """
+    Фикстура для получения конфигурации тестов.
+    
+    Returns:
+        Dict[str, Any]: Словарь с конфигурацией для тестов
+    """
+    return load_test_config()
+
+@pytest.fixture(scope="session")
+def db_config():
+    """
+    Фикстура для доступа к конфигурации базы данных.
+    
+    Возвращает словарь с параметрами подключения к БД из переменных окружения.
+    
+    Returns:
+        dict: Словарь с параметрами подключения к БД
+    """
+    config = {
+        'host': os.environ.get('FAMILY_DB_HOST', 'localhost'),
+        'port': os.environ.get('FAMILY_DB_PORT', '5432'),
+        'database': os.environ.get('FAMILY_DB_NAME', 'family_db'),
+        'admin_user': os.environ.get('FAMILY_ADMIN_USER', 'family_admin'),
+        'admin_password': os.environ.get('FAMILY_ADMIN_PASSWORD', ''),
+        'schema': os.environ.get('FAMILY_AMI_USER', 'ami_test_user'),  # Схема совпадает с именем AMI
+        'password': os.environ.get('FAMILY_AMI_PASSWORD', 'ami_secure_password'),  # Пароль AMI
+        'recreate': True,
+        'refresh_procedures': True
+    }
+    return config
+
+@pytest.fixture
+def ami_config() -> Dict[str, Any]:
+    """
+    Фикстура с конфигурацией AMI.
+    
+    Returns:
+        Dict[str, Any]: Конфигурация AMI
+    """
+    return {
+        'ami_name': 'test_ami',
+        'ami_password': 'test_ami_password'
+    }
 
 # Если среда разработки поддерживает переменные окружения .env
 # загружаем их из корневой директории проекта
@@ -31,13 +114,6 @@ else:
     if env_path.exists():
         dotenv.load_dotenv(env_path)
 
-# Configure logging
-logger = logging.getLogger(__name__)
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
-
 # Set test mode flag
 os.environ["FAMILY_TEST_MODE"] = "true"
 
@@ -48,26 +124,6 @@ missing_vars = [var for var in required_vars if not os.environ.get(var)]
 if missing_vars:
     logger.warning(f"Missing required environment variables: {', '.join(missing_vars)}")
     logger.warning("Tests that depend on database connections may fail.")
-
-
-@pytest.fixture(scope="session")
-def db_config():
-    """
-    Фикстура для доступа к конфигурации базы данных.
-    
-    Возвращает словарь с параметрами подключения к БД из переменных окружения.
-    
-    Returns:
-        dict: Словарь с параметрами подключения к БД
-    """
-    config = {
-        'DB_HOST': os.environ.get('FAMILY_DB_HOST', 'localhost'),
-        'DB_PORT': os.environ.get('FAMILY_DB_PORT', '5432'),
-        'DB_NAME': os.environ.get('FAMILY_DB_NAME', 'family_db'),
-        'DB_ADMIN_USER': os.environ.get('FAMILY_ADMIN_USER', 'family_admin'),
-        'DB_ADMIN_PASSWORD': os.environ.get('FAMILY_ADMIN_PASSWORD', ''),
-    }
-    return config
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -86,7 +142,7 @@ def setup_base_model_schema(db_config):
     original_schema = original_metadata.schema
     
     # Set the correct schema for tests
-    Base.metadata.schema = db_config["DB_SCHEMA"]
+    Base.metadata.schema = db_config["schema"]
     
     yield
     
@@ -130,8 +186,8 @@ def ami_engine(db_config, request):
         ami_password = f"test_pwd_{uuid.uuid4().hex[:8]}"
     else:
         # Используем АМИ из тестовой конфигурации
-        ami_name = db_config["DB_SCHEMA"]
-        ami_password = db_config["DB_PASSWORD"]
+        ami_name = db_config["schema"]
+        ami_password = db_config["password"]
     
     # Получаем движок управления памятью
     engine_manager = get_engine_manager()
@@ -162,11 +218,11 @@ def ami_engine(db_config, request):
             ami_initializer = AmiInitializer(
                 ami_name=ami_name,
                 ami_password=ami_password,
-                db_host=db_config["DB_HOST"],
-                db_port=int(db_config["DB_PORT"]),
-                db_name=db_config["DB_NAME"],
-                admin_user=db_config["DB_ADMIN_USER"],
-                admin_password=db_config["DB_ADMIN_PASSWORD"]
+                db_host=db_config["host"],
+                db_port=int(db_config["port"]),
+                db_name=db_config["database"],
+                admin_user=db_config["admin_user"],
+                admin_password=db_config["admin_password"]
             )
             ami_initializer.drop_ami(force=True)
             logger.info(f"Removed temporary AMI: {ami_name}")
@@ -226,9 +282,9 @@ def admin_engine(db_config):
     """
     # Create database connection as administrator
     connection_string = (
-        f"postgresql://{db_config['DB_ADMIN_USER']}:{db_config['DB_ADMIN_PASSWORD']}@"
-        f"{db_config['DB_HOST']}:{db_config['DB_PORT']}/"
-        f"{db_config['DB_NAME']}"
+        f"postgresql://{db_config['admin_user']}:{db_config['admin_password']}@"
+        f"{db_config['host']}:{db_config['port']}/"
+        f"{db_config['database']}"
     )
     
     engine = create_engine(
@@ -267,7 +323,7 @@ def vector_test_env(admin_engine, db_config, request):
     if hasattr(request.node, 'ami_name'):
         ami_schema = request.node.ami_name
     else:
-        ami_schema = db_config['DB_SCHEMA']
+        ami_schema = db_config['schema']
         
     has_pgvector = False
     
