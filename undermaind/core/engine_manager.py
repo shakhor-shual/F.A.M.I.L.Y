@@ -166,7 +166,7 @@ class EngineManager:
             Engine: SQLAlchemy engine for PostgreSQL
             
         Raises:
-            SQLAlchemyError: If engine creation fails
+            SQLAlchemyError: If engine creation fails or password is incorrect
             RuntimeError: If AMI doesn't exist and auto_create is False
             
         Philosophy note:
@@ -199,34 +199,23 @@ class EngineManager:
             if not success:
                 raise RuntimeError(f"Failed to get or create AMI {ami_name}: {info['error']}")
         
-        # Create connection URL
-        db_url = self._build_connection_url(
-            username=ami_name,
-            password=ami_password,
-            host=self.config.DB_HOST,
-            port=self.config.DB_PORT,
-            database=self.config.DB_NAME
+        # Create engine with provided credentials
+        engine = create_engine(
+            self._build_connection_url(ami_name, ami_password),
+            **self._build_engine_kwargs(echo, pool_size, pool_recycle, ami_name)
         )
         
-        # Create engine kwargs
-        engine_kwargs = self._build_engine_kwargs(
-            echo=echo,
-            pool_size=pool_size,
-            pool_recycle=pool_recycle,
-            schema_name=ami_name  # Schema name matches AMI name
-        )
+        # Verify password by attempting to connect
+        try:
+            with engine.connect() as conn:
+                conn.execute(text("SELECT 1")).scalar()
+        except SQLAlchemyError as e:
+            if "password authentication failed" in str(e).lower():
+                raise SQLAlchemyError(f"Invalid password for AMI {ami_name}")
+            raise
         
-        # Create engine
-        engine = create_engine(db_url, **engine_kwargs)
-        
-        # Set search path through connection events
-        self._set_schema_search_path(engine, ami_name)
-        
-        # Cache engine
+        # Cache the engine
         _engine_cache[cache_key] = engine
-        
-        # Log engine creation
-        logger.info(f"Created engine for AMI {ami_name} connecting to {self.config.DB_HOST}:{self.config.DB_PORT}")
         
         return engine
     

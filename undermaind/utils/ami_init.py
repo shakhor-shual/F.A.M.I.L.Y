@@ -93,33 +93,24 @@ class AmiInitializer:
         except Exception as e:
             logger.error(f"Ошибка при проверке существования схемы для АМИ: {e}")
             return False
-            
+
     def verify_ami_password(self) -> bool:
-        """
-        Проверяет корректность пароля для существующего АМИ.
-        
-        Returns:
-            bool: True если пароль корректный, иначе False
-        """
+        """Проверяет корректность пароля АМИ"""
         try:
-            # Пытаемся подключиться с использованием учетных данных АМИ
-            connection = psycopg2.connect(
+            # Пробуем подключиться с паролем АМИ
+            conn = psycopg2.connect(
                 host=self.db_init.db_host,
                 port=self.db_init.db_port,
                 database=self.db_init.db_name,
                 user=self.ami_name,
                 password=self.ami_password
             )
-            connection.close()
+            conn.close()
             return True
-        except psycopg2.OperationalError as e:
-            if "password authentication failed" in str(e).lower():
-                logger.error(f"Неверный пароль для АМИ {self.ami_name}")
-            else:
-                logger.error(f"Ошибка при проверке пароля для АМИ: {e}")
+        except psycopg2.OperationalError:
             return False
         except Exception as e:
-            logger.error(f"Непредвиденная ошибка при проверке пароля АМИ: {e}")
+            logger.error(f"Ошибка при проверке пароля АМИ: {e}")
             return False
 
     def create_ami(self) -> bool:
@@ -145,13 +136,12 @@ class AmiInitializer:
             with self._get_db_connection() as conn:
                 with conn.cursor() as cur:
                     # Вызываем процедуру инициализации АМИ
-                    # Используем имя АМИ напрямую как имя схемы (без добавления префикса)
                     cur.execute(
                         "CALL public.init_ami_consciousness_level(%s, %s, %s, %s)",
                         (
                             self.ami_name,
                             self.ami_password,
-                            self.ami_name,  # Используем имя АМИ как имя схемы без префикса "ami_"
+                            self.ami_name,  # Используем имя АМИ как имя схемы
                             True
                         )
                     )
