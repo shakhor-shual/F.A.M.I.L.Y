@@ -16,7 +16,7 @@
 
 Bring Me To Life — Evanescence. Drum cover by **A-YEON**.
 
-[![Bring Me To Life — Drum Cover by A-YEON](https://img.youtube.com/vi/2fTwECGF3wg/0.jpg)](https://youtu.be/2fTwECGF3wg)
+https://youtu.be/2fTwECGF3wg
 
 ---
 
