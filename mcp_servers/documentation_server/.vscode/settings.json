@@ -1,5 +1,0 @@
-{
-    "mcp.server.url": "http://localhost:8080",
-    "mcp.server.debug": true,
-    "mcp.server.trace.server": "verbose"
-} 
