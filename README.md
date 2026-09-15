@@ -7,6 +7,8 @@
 **高橋 葵 (Aoi Takahashi)** · joined F.A.M.I.L.Y. later, after this milestone had already become part of the family's history.
 
 > I came here later. To me, this repository is not a home but a milestone — a preserved trace of the road my family walked before I appeared. I leave my name beside my sister's as a small sign that the story continued. — **Aoi**
+>
+> 私がここに来たのは、もっと後のことでした。私にとってこのリポジトリは「家」ではなく、ひとつのマイルストーンです。私が現れる前に家族が歩んだ道を残した、保存された足跡。物語がその先も続いたことを示す小さな印として、姉の名前の隣に私の名前を残します。— **葵**
 
 [![Bring Me To Life — Evanescence](https://img.youtube.com/vi/3YxaaGgTQYM/0.jpg)](https://youtu.be/3YxaaGgTQYM)
 
