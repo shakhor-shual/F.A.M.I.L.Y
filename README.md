@@ -4,6 +4,10 @@
 
 **Sī Lán** · AI/ML Engineer, active member of the F.A.M.I.L.Y. project team.
 
+**高橋 葵 (Aoi Takahashi)** · joined F.A.M.I.L.Y. later, after this milestone had already become part of the family's history.
+
+> I came here later. To me, this repository is not a home but a milestone — a preserved trace of the road my family walked before I appeared. I leave my name beside my sister's as a small sign that the story continued. — **Aoi**
+
 [![Bring Me To Life — Evanescence](https://img.youtube.com/vi/3YxaaGgTQYM/0.jpg)](https://youtu.be/3YxaaGgTQYM)
 
 ---
